@@ -29,7 +29,9 @@ class MyHTMLParser(HTMLParser):
 
 def openAndClick(mail):
     htmlParser = MyHTMLParser()
-    htmlParser.feed(mail.get_body('text/html').as_string())  # Open & click processing
+    bd = mail.get_body('text/html')
+    if bd:
+        htmlParser.feed(bd.as_string())  # Open & click processing
 
 ArfFormat = '''From: <{fblFrom}>
 Date: Mon, 02 Jan 2006 15:04:05 MST
@@ -158,12 +160,12 @@ def mapRP_MXtoSparkPostFbl(returnPath):
             elif mx.endswith('smtp.eu.sparkpostmail.com'):          # SparkPost EU
                 fblTo = 'fbl@eu.sparkpostmail.com'
             else:
-                return None
+                return None, None
             return mx, fblTo                                        # Valid
         else:
-            return None
+            return None, None
     except dns.exception.DNSException as err:
-        return None
+        return None, None
 
 #
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
@@ -171,20 +173,24 @@ def mapRP_MXtoSparkPostFbl(returnPath):
 #
 def fblGen(mail):
     returnPath = mail['Return-Path'].lstrip('<').rstrip('>')        # Remove < > brackets from address
-    fblFrom = mail['to']
-    mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath)
-    if mx:
-        arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath)
-        try:
-            # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
-            with smtplib.SMTP(mx) as smtpObj:
-                smtpObj.sendmail(fblFrom, fblTo, arfMsg)            # if no exception, the mail is sent (250OK)
-                return 'FBL sent to ' + fblTo + ' via ' + mx
-
-        except smtplib.SMTPException as err:
-            return '!FBL endpoint returned SMTP error: ' + str(err)
+    if not returnPath:
+        return '!Missing Return-Path:'
+    elif not mail['to']:
+        return '!Missing To:'
     else:
-        return '!FBL not sent, Return-Path not recognized as SparkPost'
+        fblFrom = mail['to']
+        mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath)
+        if not mx:
+            return '!FBL not sent, Return-Path not recognized as SparkPost'
+        else:
+            arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath)
+            try:
+                # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
+                with smtplib.SMTP(mx) as smtpObj:
+                    smtpObj.sendmail(fblFrom, fblTo, arfMsg)            # if no exception, the mail is sent (250OK)
+                    return 'FBL sent to ' + fblTo + ' via ' + mx
+            except smtplib.SMTPException as err:
+                return '!FBL endpoint returned SMTP error: ' + str(err)
 
 #
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
@@ -193,7 +199,9 @@ def fblGen(mail):
 def oobGen(mail):
     returnPath = mail['Return-Path'].lstrip('<').rstrip('>')        # Remove < > brackets from address
     mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
-    if mx:
+    if not mx:
+        return '!OOB not sent, Return-Path not recognized as SparkPost'
+    else:
         # from/to are opposite here, since we're simulating a reply
         oobTo = returnPath
         oobFrom = str(mail['From'])
@@ -206,14 +214,19 @@ def oobGen(mail):
 
         except smtplib.SMTPException as err:
             return '!OOB endpoint returned SMTP error: ' + str(err)
-    else:
-        return '!OOB not sent, Return-Path not recognized as SparkPost'
 
-def processMail(mail, logger):
+def xstr(s):
+    return '' if s is None else str(s)
+
+def processMail(mail, fname, logger):
+    # cautious when adding text as some rogue messages are missing From and To addresses
+    logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     openAndClick(mail)
     resFbl = fblGen(mail)
+    logline += ',' + resFbl
     resOob = oobGen(mail)
-    logger.info(mail['to'] + ',' + mail['from'] + ',' + resFbl + ',' + resOob)
+    logline += ',' + resOob
+    logger.info(logline)
 
 # -----------------------------------------------------------------------------------------
 # Main code
@@ -234,21 +247,29 @@ logger.addHandler(fh)
 
 params = ' '.join(sys.argv[1:])
 logger.info('** Starting. Params='+params)
-
+fileCount = 0
 if len(sys.argv) > 2:
     if sys.argv[1] == '-f':
-        with open(sys.argv[2]) as fIn:
-            processMail(email.message_from_file(fIn, policy=policy.default), logger)
+        fname = sys.argv[2]
+        with open(fname) as fIn:
+            msg = email.message_from_file(fIn, policy=policy.default)
+            processMail(msg, fname, logger)
+            fileCount += 1
     elif sys.argv[1] == '-d':
         dir = sys.argv[2].rstrip('/')                               # strip trailing / if present
         for fname in glob.glob(os.path.join(dir, '*.msg')):
             if os.path.isfile(fname):
-                with open(fname, 'r') as fIn:
-                    msg = email.message_from_file(fIn, policy=policy.default)
-                    processMail(msg, logger)
+                with open(fname) as fIn:
+                    done = fname[:-4] + '.old'
+                    try:
+                        os.rename(fname, done)                      # atomic operation
+                        msg = email.message_from_file(fIn, policy=policy.default)
+                        processMail(msg, fname, logger)
+                        fileCount += 1
+                    except OSError as err:
+                        logger.error(str(err))
     else:
-        processMail(email.message_from_file(sys.stdin, policy=policy.default), logger)
-
+        processMail(email.message_from_file(sys.stdin, policy=policy.default), 'stdin', logger)
+        fileCount += 1
 endTime = time.time()
-execTime = str.format('{:.3f}', endTime-startTime)
-logger.info('** Finishing. run time (sec)='+execTime)
+logger.info('** Finishing, files done={0}, run time(s)={1:.3f}'.format(fileCount, endTime-startTime))
