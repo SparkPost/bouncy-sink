@@ -7,31 +7,24 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, sys, os, email, time, glob, requests, dns.resolver, smtplib
+import logging, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random
 from html.parser import HTMLParser
-
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
 
-# Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
-class MyHTMLParser(HTMLParser):
-    def handle_starttag(self, tag, attrs):
-        if tag == 'img':
-            for attr in attrs:
-                if attr[0] == 'src':
-                    url = attr[1]
-                    r = requests.get(url)
-        if tag == 'a':
-            for attr in attrs:
-                if attr[0] == 'href':
-                    url = attr[1]
-                    r = requests.get(url)
-
-def openAndClick(mail):
-    htmlParser = MyHTMLParser()
-    bd = mail.get_body('text/html')
-    if bd:
-        htmlParser.feed(bd.as_string())  # Open & click processing
+def printHelp():
+    progName = sys.argv[0]
+    shortProgName = os.path.basename(progName)
+    print('\nNAME')
+    print('   ' + shortProgName + '[-f file | -d dir]')
+    print('   Consume inbound mails, generating opens, clicks, OOBs and FBLs\n')
+    print('Parameters')
+    print('    (no params)  - ingest a single mail from stdin, e.g. cat mail.txt | ./consume-mail.py')
+    print('    -f file      - ingest a single mail file in RFC822 format')
+    print('    -d directory - look for *.msg files, ingest them, renaming to *.old')
+    print('')
+    print('Output')
+    print('    logfile of actions taken created in ' + logfilename)
 
 ArfFormat = '''From: <{fblFrom}>
 Date: Mon, 02 Jan 2006 15:04:05 MST
@@ -187,7 +180,7 @@ def fblGen(mail):
             try:
                 # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
-                    smtpObj.sendmail(fblFrom, fblTo, arfMsg)            # if no exception, the mail is sent (250OK)
+                    smtpObj.sendmail(fblFrom, fblTo, arfMsg)        # if no exception, the mail is sent (250OK)
                     return 'FBL sent to ' + fblTo + ' via ' + mx
             except smtplib.SMTPException as err:
                 return '!FBL endpoint returned SMTP error: ' + str(err)
@@ -215,18 +208,131 @@ def oobGen(mail):
         except smtplib.SMTPException as err:
             return '!OOB endpoint returned SMTP error: ' + str(err)
 
+# Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
+class MyHTMLOpenParser(HTMLParser):
+    def handle_starttag(self, tag, attrs):
+        if tag == 'img':
+            for attr in attrs:
+                if attr[0] == 'src':
+                    url = attr[1]
+                    print('GET', url)
+                    r = requests.get(url)                           # 'open' the mail by getting image(s)
+
+class MyHTMLClickParser(HTMLParser):
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            for attr in attrs:
+                if attr[0] == 'href':
+                    url = attr[1]
+                    print('GET', url)
+                    r = requests.get(url)                           # 'click' the links by getting them
+
 def xstr(s):
     return '' if s is None else str(s)
 
-def processMail(mail, fname, logger):
-    # cautious when adding text as some rogue messages are missing From and To addresses
+def processMail(mail, fname, probs, logger):
+    # cautiously add header text as some rogue / spammy messages seen coming in are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
-    openAndClick(mail)
-    resFbl = fblGen(mail)
-    logline += ',' + resFbl
-    resOob = oobGen(mail)
-    logline += ',' + resOob
+    # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
+    if random.random() <= probs['OOB']:
+        resOob = oobGen(mail)
+        logline += ',' + resOob
+    else:
+        # open / open again / click / click again logic, as per conditional probabilities
+        if random.random() <= probs['Open']:
+            bd = mail.get_body('text/html')
+            if bd:                                                  # if no body to parse, ignore
+                body = bd.as_string()
+                htmlOpenParser = MyHTMLOpenParser()
+                logline += ',Open'
+                htmlOpenParser.feed(body)
+                if random.random() <= probs['OpenAgain_Given_Open']:
+                    htmlOpenParser.feed(body)
+                    logline += ',OpenAgain'
+                if random.random() <= probs['Click_Given_Open']:
+                    htmlClickParser = MyHTMLClickParser()
+                    htmlClickParser.feed(body)
+                    logline += ',Click'
+                    if random.random() <= probs['ClickAgain_Given_Click']:
+                        htmlClickParser.feed(body)
+                        logline += ',ClickAgain'
+        # Feedback Loop email response
+        if random.random() <= probs['FBL']:
+            resFbl = fblGen(mail)
+            logline += ',' + resFbl
     logger.info(logline)
+
+# Set conditional probability in mutable dict P for event a given event b. https://en.wikipedia.org/wiki/Conditional_probability
+def checkSetCondProb(P, a, b, logger):
+    aGivenbName = a + '_Given_' + b
+    PaGivenb = P[a] / P[b]
+    if PaGivenb < 0 or PaGivenb > 1:
+        logger.error('Config file problem: {} and {} implies {} = {}, out of range'.format(a, b, aGivenbName, PaGivenb))
+        return None
+    else:
+        P[aGivenbName] = PaGivenb
+        return True
+
+def getBounceProbabilities(cfg, logger):
+    # Take the overall percentages and adjust them according to how much traffic we expect to receive. This app would not see
+    # the 'upstream handled' traffic percentage as PMTA blackholes / in-band-bounces this automatically via PMTA config, not in this application
+    # Express all values as probabilities 0 <= p <= 1.0
+    s = 'bouncy-sink'                                               # config file section name
+    try:
+        thisAppTraffic  = 1 - float(cfg.get(s, 'Upstream_Handled') ) / 100
+        P = {
+            'OOB'         : (float(cfg.get(s, 'OOB_percent') ) / 100) / thisAppTraffic,
+            'FBL'         : (float(cfg.get(s, 'FBL_percent') ) / 100) / thisAppTraffic,
+            'Open' : (float(cfg.get(s, 'Open_percent') ) / 100) / thisAppTraffic,
+            'OpenAgain'   : (float(cfg.get(s, 'Open_Again_percent') ) / 100) / thisAppTraffic,
+            'Click': (float(cfg.get(s, 'Click_percent') ) / 100) / thisAppTraffic,
+            'ClickAgain'  : (float(cfg.get(s, 'Click_Again_percent') ) / 100) / thisAppTraffic
+        }
+        # calculate conditional open & click probabilities, given a realistic state sequence would be
+        # Open?
+        #  - Maybe OpenAgain?
+        #  - Maybe Click?
+        #     - Maybe ClickAgain?
+        if checkSetCondProb(P, 'OpenAgain', 'Open', logger) \
+                and checkSetCondProb(P, 'Click', 'Open', logger) \
+                and checkSetCondProb(P, 'ClickAgain', 'Click', logger):
+            return P
+        else:
+            return None
+    except (ValueError, configparser.Error) as e:
+        logger.error('Config file problem: '+str(e))
+        return None
+
+def consumeFiles(fnameList, cfg):
+    startTime = time.time()                                         # measure run time
+    # Log some info on mail that is processed
+    logfilename = 'consume-mail.log'
+    logger = logging.getLogger('consume-mail')
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(logfilename)
+    formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    probs = getBounceProbabilities(cfg, logger)
+    if probs:
+        if fnameList is None:
+            logger.info('** Consuming mail from stdin')
+            msg = email.message_from_file(sys.stdin, policy=policy.default)
+            processMail(msg, 'stdin', probs, logger)
+        else:
+            logger.info('** Consuming {} mail file(s)'.format(len(fnameList)))
+            for fname in fnameList:
+                if os.path.isfile(fname):
+                    with open(fname) as fIn:
+                        done = fname[:-4] + '.old'
+                        try:
+                            # os.rename(fname, done)  # atomic operation TODO: add back in
+                            msg = email.message_from_file(fIn, policy=policy.default)
+                            processMail(msg, fname, probs, logger)
+                        except Exception as e:
+                            logger.error(str(e))
+        endTime = time.time()
+        logger.info('** Finishing, run time(s)={0:.3f}'.format(endTime-startTime))
 
 # -----------------------------------------------------------------------------------------
 # Main code
@@ -235,41 +341,22 @@ def processMail(mail, fname, logger):
 # -f        file        (single file)
 # -d        directory   (read process and delete any file with extension .msg)
 # (blank)   stdin       (e.g. for pipe input)
-startTime = time.time()                                             # measure run time
 
-# Log some info on mail that is processed
-logger = logging.getLogger('consume-mail')
-logger.setLevel(logging.INFO)
-fh = logging.FileHandler('consume-mail.log')
-formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+configFile = 'bouncy-sink.ini'
+config = configparser.ConfigParser()
+config.read_file(open(configFile))
 
-params = ' '.join(sys.argv[1:])
-logger.info('** Starting. Params='+params)
-fileCount = 0
-if len(sys.argv) > 2:
+if len(sys.argv) >= 3:
     if sys.argv[1] == '-f':
-        fname = sys.argv[2]
-        with open(fname) as fIn:
-            msg = email.message_from_file(fIn, policy=policy.default)
-            processMail(msg, fname, logger)
-            fileCount += 1
+        consumeFiles([sys.argv[2]], config)
     elif sys.argv[1] == '-d':
         dir = sys.argv[2].rstrip('/')                               # strip trailing / if present
-        for fname in glob.glob(os.path.join(dir, '*.msg')):
-            if os.path.isfile(fname):
-                with open(fname) as fIn:
-                    done = fname[:-4] + '.old'
-                    try:
-                        os.rename(fname, done)                      # atomic operation
-                        msg = email.message_from_file(fIn, policy=policy.default)
-                        processMail(msg, fname, logger)
-                        fileCount += 1
-                    except OSError as err:
-                        logger.error(str(err))
+        fnameList = glob.glob(os.path.join(dir, '*.msg'))
+        consumeFiles(fnameList, config)
     else:
-        processMail(email.message_from_file(sys.stdin, policy=policy.default), 'stdin', logger)
-        fileCount += 1
-endTime = time.time()
-logger.info('** Finishing, files done={0}, run time(s)={1:.3f}'.format(fileCount, endTime-startTime))
+        printHelp()
+else:
+    if len(sys.argv) <= 1:                                           # empty args - read stdin
+        consumeFiles(None, config)
+    else:
+        printHelp()
