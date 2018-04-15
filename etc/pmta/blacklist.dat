@@ -1,0 +1,587 @@
+random_bounce:421 4.0.0 Intrusion prevention active for [<SENDER_IPADDRESS>]
+random_bounce:421 4.3.0 collect: Cannot write ./dfn474lUCs029267 (bfcommit, uid=1040, gid=101): Disk quota exceeded
+random_bounce:421 4.3.2 Service not available, closing transmission channel
+random_bounce:421 4.3.2 System not accepting network messages
+random_bounce:421 4.4.2 mailfilter02.ispone.net.au Error: timeout exceeded
+random_bounce:421 4.4.5 Too many connections to this host.
+random_bounce:421 4.7.0 msfrf2111.sfr.fr Error: too many errors
+random_bounce:421 4.7.0 mx002.roc2.bluetie.com Error: too many errors
+random_bounce:421 4.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Backup mail exchanger not provided here
+random_bounce:421 4.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Can't accept mail while inactive.
+random_bounce:421 4.7.1 <r4lmail.recipe4living-recipes.com[<SENDER_IPADDRESS>]>: Client host rejected: Abusive activity detected - relay temporarily suppressed
+random_bounce:421 4.7.1 Service unavailable, please try primary mail exchanger
+random_bounce:450 4.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> is temporarily unavailable, try again later
+random_bounce:450 4.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown in local recipient table
+random_bounce:450 4.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: unverified address: connect to <RCPT_SERVER>[<OTHER_IPADDRESS>]: No route to host
+random_bounce:450 4.1.8 <<ORIG>>: Sender address rejected: Domain not found
+random_bounce:450 4.2.1 Mailbox is currently disabled.
+random_bounce:450 4.2.1 sorry, mailbox currently unavailable (#4.2.1)
+random_bounce:450 4.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox full please try again later
+random_bounce:450 4.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... mailbox full
+random_bounce:450 4.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Mailbox <RCPT_USER>@<RCPT_DOMAIN> is Full.
+random_bounce:450 4.3.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Try again later
+random_bounce:450 4.4.3 Could not resolve ns1.recipes1.postmasterdirect.com (#4.4.3)
+random_bounce:450 4.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Mailbox is over quota, please try again later
+random_bounce:450 4.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: SPF-Result=ns1.offers1.postmasterdirect.com: Time-out on DNS 'SPF' lookup of 'ns1.offers1.postmasterdirect.com'
+random_bounce:450 4.7.1 Client host rejected: cannot find your hostname, [<SENDER_IPADDRESS>]
+random_bounce:450 4.7.1 Service unavailable; Client host [<SENDER_IPADDRESS>] blocked using b.barracudacentral.org; http://www.barracudanetworks.com/reputation/?pr=1&ip=<SENDER_IPADDRESS>
+random_bounce:450 5.7.1 Mail from <SENDER_IPADDRESS> blocked using Trend Micro Network Reputation Service. Please see http://www.mail-abuse.com/cgi-bin/lookup?ip_address=<SENDER_IPADDRESS>
+random_bounce:451 4.0.0 Can't create transcript file ./xfn476U7r02234: Disk quota exceeded
+random_bounce:451 4.1.8 Possibly forged hostname for <SENDER_IPADDRESS>
+random_bounce:451 4.2.1 mailbox temporarily disabled: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:451 4.2.2 user over quota; cannot receive new mail: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:451 4.3.0 Message held for human verification before permitting delivery. For help, please quote incident ID <HEXDUMP>.
+random_bounce:451 4.3.0 qq temporary problem (#4.3.0)
+random_bounce:451 4.3.0 qq write error or disk full (#4.3.0)
+random_bounce:451 4.3.0 qqt failure (#4.3.0)
+random_bounce:451 4.3.2 Please try again later
+random_bounce:451 4.3.5 Server configuration problem
+random_bounce:451 4.3.5 Temporarily unavailable, try again later.
+random_bounce:451 4.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User is over quota, try again later
+random_bounce:451 4.7.1 Please try again later
+random_bounce:452 4.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> 552 : <RCPT_USER>@<RCPT_DOMAIN> account is full (quota exceeded), rejecting
+random_bounce:452 4.1.1 Account is temporarily over quota
+random_bounce:452 4.2.1 Mailbox temporarily disabled: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:452 4.2.1 mailbox temporarily disabled: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:452 4.2.2 <<RCPT_USER>@<RCPT_DOMAIN>.au>... Mailbox full
+random_bounce:452 4.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox full
+random_bounce:452 4.2.2 Disk quota exceeded
+random_bounce:452 4.2.2 Mailbox is full
+random_bounce:452 4.2.2 Message would exceed quota for <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:452 4.2.2 Over Quota
+random_bounce:452 4.2.2 Recipient Unable to accept message - mailbox full(c2mailmx101)
+random_bounce:452 4.2.2 Recipient Unable to accept message - mailbox full(c2mailmx102.mailcentro.net)
+random_bounce:452 4.3.0 deferred: mailbox <<RCPT_USER>@<RCPT_DOMAIN>> is over quota - queue ID n474ZYhU028666
+random_bounce:452 4.3.1 Insufficient system resources
+random_bounce:452 4.3.1 Insufficient system storage
+random_bounce:452 4.3.1 Out of memory
+random_bounce:452 4.4.5 Insufficient disk space; try again later
+random_bounce:452 4.5.2 Could not resolve sender domain.
+random_bounce:500 5.0.0 You are blacklisted by RBL and not authenticated.
+random_bounce:500 5.3.3 Unrecognized command
+random_bounce:500 5.5.0 Syntax error - line too long
+random_bounce:500 5.5.1 Unrecognized command
+random_bounce:501 5.1.1 bad address <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:501 5.1.8 Sender domain blocked (missing DNS MX record).
+random_bounce:501 5.7.1 <<ORIG>>... Sender domain must exist
+random_bounce:501 5.7.1 <<ORIG>>... Sender refused by the DNSBL b.barracudacentral.org
+random_bounce:501 5.7.1 <<ORIG>>... Sender refused by the DNSBL query.bondedsender.org
+random_bounce:501 5.7.1 This system is not configured to relay mail (r) from <<ORIG>> to <<RCPT_USER>@<RCPT_DOMAIN>> for <SENDER_IPADDRESS>
+random_bounce:502 5.5.1 unimplemented (#5.5.1)
+random_bounce:503 5.5.1 Incorrect command sequence
+random_bounce:503 5.5.1 RCPT first (#5.5.1)
+random_bounce:505 5.7.1 Service unavailable; Client host [<SENDER_IPADDRESS>] blocked using b.barracudacentral.org; http://www.barracudanetworks.com/reputation/?pr=1&ip=<SENDER_IPADDRESS>
+random_bounce:511 5.1.1 5.7.1 sorry, can't find a valid MX for sender domain (#5.1.1 - chkuser)
+random_bounce:511 5.1.1 Invalid recipient: <<RCPT_USER>@<RCPT_DOMAIN>> <HEXDUMP>
+random_bounce:511 5.1.1 sorry, can't find a valid MX for sender domain (#5.1.1 - chkuser)
+random_bounce:511 5.1.1 sorry, no mailbox here by that name (#5.1.1 - chkuser)
+random_bounce:522 5.2.2 sorry, recipient mailbox is full (#5.2.2 - chkuser)
+random_bounce:522 5.7.1 Recipient address rejected: Requested mail action aborted: exceeded storage allocation Please see http://support.mailhostbox.com/email-administrators-guide/error-codes for explanation of the problem.
+random_bounce:530 5.7.1 Client was not authenticated
+random_bounce:530 5.7.1 Relaying not allowed: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:530 5.7.1 authentication required for relay (#5.7.1)
+random_bounce:540 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Your emails has been returned because the intented recipient's email account has been suspended. The account must be re-activated to receive incoming messages.
+random_bounce:550 4.2.1 mailbox temporarily disabled: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 4.2.2 user over quota; cannot receive new mail: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.0.0  User unknown
+random_bounce:550 5.0.0 <<ORIG>>... Access denied (adb). See http://<RCPT_SERVER>/?id=3885
+random_bounce:550 5.0.0 <<ORIG>>... Messages from this domain temporarily denied - excess spam - contact <OTHER_USER>@<RCPT_DOMAIN> if you feel this is in error - on relay of: MAIL FROM:<<ORIG>>
+random_bounce:550 5.0.0 <<ORIG>>... Rejected-This domain is a chronic spammer.Contact <OTHER_USER>@<RCPT_DOMAIN> via an alternate domain
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... ExchangeDefender does not protect this email address
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox is full - please try later
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Messages from this domain temporarily denied - excess spam - contact <OTHER_USER>@<RCPT_DOMAIN> if you feel this is in error
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... No "<RCPT_USER>" in name directory
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... No such virtual domain user address
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... User is suspended
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown - Remove this address from your lists - You may be bouncing mail with forged headers and addresses from spammers or zombies
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... user <RCPT_USER>@<RCPT_DOMAIN> has exceeded the mail storage limit
+random_bounce:550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... we do not accept mail from spammers <HEXDUMP>
+random_bounce:550 5.0.0 Access denied
+random_bounce:550 5.0.0 Domain Blocked - Abuse:Call WorldNet 210-226-6666 Abuse - GIVE CODE <HEXDUMP>
+random_bounce:550 5.0.0 Email rejected because spam probability is too high. Please see:<http://<RCPT_SERVER>/spam>
+random_bounce:550 5.0.0 Email rejected because spam probability is too high. Please see:<http://www.it.iastate.edu/spam>
+random_bounce:550 5.0.0 Mail blocked - Invalid Subject
+random_bounce:550 5.0.0 Mail rejected.
+random_bounce:550 5.0.0 Message Rejected
+random_bounce:550 5.0.0 PSU-SPAM-PROB The PSU e-mail system believes this message is spam. If this is incorrect, please change your message and resend it or contact your local network support person
+random_bounce:550 5.0.0 Possible SPAM. To appeal go to http://naples.cc.sunysb.edu/DoIT/webforms.nsf/blocked?OpenForm
+random_bounce:550 5.0.0 Rejected-This domain is a chronic spammer.Contact <OTHER_USER>@<RCPT_DOMAIN> via an alternate domain
+random_bounce:550 5.0.0 blocked for spam
+random_bounce:550 5.0.0 we do not accept mail from spammers
+random_bounce:550 5.1.0 <<ORIG>> sender rejected
+random_bounce:550 5.1.0 <<ORIG>> sender rejected your domain part is not good
+random_bounce:550 5.1.0 <<RCPT_USER>@<RCPT_DOMAIN>>: Account Deactivated
+random_bounce:550 5.1.0 <<RCPT_USER>@<RCPT_DOMAIN>>: inactive user
+random_bounce:550 5.1.0 Address rejected <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.0 Address rejected.
+random_bounce:550 5.1.0 Address rejected.
+random_bounce:550 5.1.0 Address rejected.
+random_bounce:550 5.1.0 Invalid sender domain
+random_bounce:550 5.1.0 Recipient rejected.
+random_bounce:550 5.1.0 error: R4.1: <SENDER_IPADDRESS>
+random_bounce:550 5.1.0 no addressees: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 - Invalid mailbox: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> Account not available
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> User unknown; rejecting
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> is not a valid mailbox
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> recipient overquota
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> recipient rejected
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>> user disabled
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Addressee unknown relay=qmail11.example.com [<SENDER_IPADDRESS>]
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... No such user here
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Sorry, no mailbox here by that name or mailbox is over quota
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User Unknown
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User does not exist on this mail system
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User is unknown {mx027}
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User is unknown {mx073}
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: <RCPT_DOMAIN>
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown in local recipient table
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown in relay recipient table
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown in virtual alias table
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown in virtual mailbox table
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: undeliverable address: host <OTHER_IPADDRESS>[<OTHER_IPADDRESS>] said: 550 <RCPT_USER>@<RCPT_DOMAIN> unknown user account (in reply to RCPT TO command)
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: undeliverable address: host <RCPT_SERVER>[<OTHER_IPADDRESS>] said: 552 RCPT TO:<<RCPT_USER>@<RCPT_DOMAIN>> Mailbox disk quota exceeded (in reply to RCPT TO command)
+random_bounce:550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: undeliverable address: host twinS.ispn.net[/var/lib/imap/socket/lmtp] said: 552 5.2.2 Over quota (in reply to RCPT TO command)
+random_bounce:550 5.1.1 Address rejected (#5.1.1)
+random_bounce:550 5.1.1 Adresse d au moins un destinataire invalide. Invalid recipient. OUK_416 [416]
+random_bounce:550 5.1.1 Bad destination mailbox address (<RCPT_USER>@<RCPT_DOMAIN>).
+random_bounce:550 5.1.1 Invalid mailbox
+random_bounce:550 5.1.1 Invalid recipient
+random_bounce:550 5.1.1 Invalid recipient
+random_bounce:550 5.1.1 Invalid recipient <<RCPT_USER>@<RCPT_DOMAIN>> (#5.1.1)
+random_bounce:550 5.1.1 Mailbox  does not exist
+random_bounce:550 5.1.1 Mailbox unavailable or access denied - <courtnery.titus@cox.com>
+random_bounce:550 5.1.1 Not our Customer
+random_bounce:550 5.1.1 Not our Customer
+random_bounce:550 5.1.1 Not our Customer
+random_bounce:550 5.1.1 RUSR <SENDER_IPADDRESS>: No such user: <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:550 5.1.1 Recipient <RCPT_USER>@<RCPT_DOMAIN> does not exist here
+random_bounce:550 5.1.1 Recipient address rejected: User Unknown
+random_bounce:550 5.1.1 Recipient address rejected: aol.com
+random_bounce:550 5.1.1 Recipient not recognized: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 Requested action not taken: mailbox unavailable
+random_bounce:550 5.1.1 Rule imposed mailbox access refused
+random_bounce:550 5.1.1 Sorry dear sender, but that user does not exist here (anymore?)",smtp.metro.info (164.139.39.7)
+random_bounce:550 5.1.1 The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. Learn more at http://mail.google.com/support/bin/answer.py?answer=6596 10si89265agb.36
+random_bounce:550 5.1.1 The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. Learn more at http://support.google.com/mail/bin/answer.py?answer=6596 10si18100231igt.55 - gsmtp
+random_bounce:550 5.1.1 The email account that you tried to reach does not exist. Please try double-checking the recipient's email address for typos or unnecessary spaces. Learn more at http://support.google.com/mail/bin/answer.py?answer=6596 10si2730182ykh.165 - gsmtp
+random_bounce:550 5.1.1 User Unknown
+random_bounce:550 5.1.1 User Unknown
+random_bounce:550 5.1.1 User unknown
+random_bounce:550 5.1.1 User unknown
+random_bounce:550 5.1.1 User unknown: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 [R2] Recipient dan23@centurylink.net does not exist here.
+random_bounce:550 5.1.1 [R2] Recipient does not exist here.
+random_bounce:550 5.1.1 http://mail.google.com/support/bin/answer.py?answer=6596 27si88275qyk.121
+random_bounce:550 5.1.1 no such local recipient: <mailer-daemon>
+random_bounce:550 5.1.1 sorry, no mailbox here by that name
+random_bounce:550 5.1.1 sorry, user over quota (#5.1.1 - chkusr)
+random_bounce:550 5.1.1 unknown or illegal alias
+random_bounce:550 5.1.1 unknown or illegal alias <http://<RCPT_SERVER>/wiscmail/page.php?id=3998#alias>: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 unknown or illegal alias: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.1 unknown or illegal alias: rig19462008@verizon.net
+random_bounce:550 5.1.6 recipient no longer on server: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.1.7 Sender domain not found in DNS
+random_bounce:550 5.1.8 <<ORIG>> Invalid address
+random_bounce:550 5.1.8 <<ORIG>>: No thank you rejected: Domain not found
+random_bounce:550 5.1.8 <<ORIG>>: Sender address rejected: Domain not found
+random_bounce:550 5.1.8 Cannot resolve your domain {mx-us004}
+random_bounce:550 5.1.8 Valid From address required. The specified computer name is not registered in DNS. - on relay of: MAIL FROM:<<ORIG>>
+random_bounce:550 5.1.8 invalid/host-not-in-DNS return address not allowed
+random_bounce:550 5.1.8 sorry, can't find a valid MX for sender domain
+random_bounce:550 5.1.8 sorry, can't find a valid MX for sender domain (chkuser)
+random_bounce:550 5.2.0 Message identified as SPAM - Please visit http://www.charter.com/postmaster <HEXDUMP>
+random_bounce:550 5.2.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox disabled for this recipient
+random_bounce:550 5.2.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Unknown user or mailbox deactivated - Adressat unbekannt oder Mailbox deaktiviert - Destinataire inconnu ou boite aux lettres desactivee - Destinatario sconosciuto o mailbox disatttivata
+random_bounce:550 5.2.1 <<RCPT_USER>@<RCPT_DOMAIN>>... user disabled; cannot receive new mail: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.2.1 Mailbox <<RCPT_USER>@<RCPT_DOMAIN>> cannot receive mail.
+random_bounce:550 5.2.1 Mailbox unavailable. Your IP address <SENDER_IPADDRESS> is blacklisted using b.barracudacentral.org. Details: http://www.barracudanetworks.com/reputation/?pr=1&ip=<SENDER_IPADDRESS>.
+random_bounce:550 5.2.1 RACT <SENDER_IPADDRESS>: Mailbox is inactive: <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:550 5.2.1 The email account that you tried to reach is disabled. 10si12364870qyk.125
+random_bounce:550 5.2.1 The email account that you tried to reach is disabled. ix6si28430024icb.70 - gsmtp,aspmx.l.google.com (74.125.142.26)
+random_bounce:550 5.2.1 This mailbox has been blocked due to inactivity
+random_bounce:550 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox full
+random_bounce:550 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox is over quota
+random_bounce:550 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>... Subscriber is over disk quota
+random_bounce:550 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Mailbox <RCPT_USER>@<RCPT_DOMAIN> is Full.
+random_bounce:550 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User over quota
+random_bounce:550 5.2.2 user quota exceeded
+random_bounce:550 5.3.2 Rejected by mailbox host. REPLY:(550 5.2.1 mailbox is inactive!! (#5.2.1))
+random_bounce:550 5.4.4 Unroutable email address.
+random_bounce:550 5.5.0 ** Mensaje bloqueado por el Servicio de Seguridad de Mensajeria DaycoHost ** El mensaje para: <RCPT_USER>@<RCPT_DOMAIN> desde: <ORIG> Ha sido bloqueado por no cumplir el emisor con el RFC: 1912 (Reverse DNS) Si Ud. requiere mayor informaci.n acerca de este tema por favor contactenos al Centro de Operaciones DaycoHost a los n.meros <HEXDUMP> o <HEXDUMP> las 24 horas del d.a.
+random_bounce:550 5.5.0 Access Denied <<RCPT_USER>@<RCPT_DOMAIN>> (Allocated mailbox storage exceeded (#1.02)) (#4.65)
+random_bounce:550 5.5.0 Content unacceptable
+random_bounce:550 5.5.0 Mail Administratively Rejected
+random_bounce:550 5.5.0 Sender domain could not be confirmed (#4.62)
+random_bounce:550 5.5.0 Spam rejected.
+random_bounce:550 5.5.5 policy violation ... (#5.5.5)
+random_bounce:550 5.7.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Local Policy Violation
+random_bounce:550 5.7.0 Local Policy Violation
+random_bounce:550 5.7.0 This message looks too much like SPAM to accept.
+random_bounce:550 5.7.0 user access deny.
+random_bounce:550 5.7.1 <<ORIG>>... Access denied
+random_bounce:550 5.7.1 <<ORIG>>: Sender address rejected: ******************SPAM******************
+random_bounce:550 5.7.1 <<ORIG>>: Sender address rejected: Your site is banned due to uce
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... <<RCPT_USER>@<RCPT_DOMAIN>>... Command rejected
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Access denied
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Command rejected
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Email rejected M
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... H:MXB [<SENDER_IPADDRESS>] Connection refused due to abuse. Please contact your E-mail provider.
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Local Policy Violation
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Mail from <SENDER_IPADDRESS> refused: Vea http://<RCPT_SERVER>/bl/spam.html
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Rejected - email <OTHER_USER>@<RCPT_DOMAIN> from a different domain if this is not spam.
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Rejected: <SENDER_IPADDRESS> listed at b.barracudacentral.org
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Relaying denied
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... Relaying denied. Proper authentication required.
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... mail rejected - this domain does not accept its own bounces (qmail4.example.com)
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... mail rejected - this domain does not accept its own bounces (qmail5.example.com)
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... server [<OTHER_IPADDRESS>] for <<RCPT_USER>@<RCPT_DOMAIN>> previously cached response: "550 5.0.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Mailbox is full - please try later"
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... server [<OTHER_IPADDRESS>] for <<RCPT_USER>@<RCPT_DOMAIN>> previously cached response: "550 5.1.1 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown"
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... server [<OTHER_IPADDRESS>] for <<RCPT_USER>@<RCPT_DOMAIN>> rejected address saying "<<RCPT_USER>@<RCPT_DOMAIN>>... User unknown"
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... server [<RCPT_SERVER>] for <<RCPT_USER>@<RCPT_DOMAIN>> rejected address saying "<<RCPT_USER>@<RCPT_DOMAIN>>... User unknown"
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>... we do not relay <<ORIG>>
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: 553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... No such user here
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: <RCPT_USER>@<RCPT_DOMAIN> doesn't accept mail
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Invalid user
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Mail appeared to be SPAM or forged. Ask your Mail/DNS-Administrator to correct HELO and DNS MX settings or to get removed from DNSBLs
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Relay Access Denied
+random_bounce:550 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User unknown
+random_bounce:550 5.7.1 <SENDER_IPADDRESS> blocked as a source of SPAM
+random_bounce:550 5.7.1 <SENDER_IPADDRESS> has been blocked by barracuda
+random_bounce:550 5.7.1 <Your e-mail was rejected by an anti-spam content filter on Internet Gateway server. Reasons for rejection may be: obscene language, graphics, or spam-like characteristics. Removing these may let the e-mail through the filter.>
+random_bounce:550 5.7.1 <Your e-mail was rejected by an anti-spam content filter on gateway (<OTHER_IPADDRESS>). Reasons for rejection may be: obscene language, graphics, or spam-like characteristics. Removing these may let the e-mail through the filter.>
+random_bounce:550 5.7.1 <Your e-mail was rejected by an anti-spam content filter on the gateway servers. Reasons for rejection may be: obscene language, graphics, or spam-like characteristics. Removing these may let the e-mail through the filter.>
+random_bounce:550 5.7.1 <ecards-anita=siebenkaes.de@123greetings.com> is permanently blocked due to complaints (MBL-M)
+random_bounce:550 5.7.1 <qmail1.example.com>: Helo command rejected: User claims you are sending unrequested spam
+random_bounce:550 5.7.1 <qmail1.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Connection rejected due to site policy
+random_bounce:550 5.7.1 <qmail11.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Connection rejected due to site policy
+random_bounce:550 5.7.1 <qmail2.example.com>: Helo command rejected: User claims you are sending unrequested spam
+random_bounce:550 5.7.1 <qmail2.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Connection rejected due to site policy
+random_bounce:550 5.7.1 <qmail4.example.com>: Helo command rejected: User claims you are sending unrequested spam
+random_bounce:550 5.7.1 <qmail4.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Connection rejected due to site policy
+random_bounce:550 5.7.1 <qmail5.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Connection rejected due to site policy
+random_bounce:550 5.7.1 <r4lmail.recipe4living-recipes.com[<SENDER_IPADDRESS>]>: No thank you rejected: Mail refused: See http://spamblock.outblaze.com/AMM1728200
+random_bounce:550 5.7.1 Access denied
+random_bounce:550 5.7.1 Access denied. IP on internal blacklist. <SENDER_IPADDRESS> SRC009 Contact <OTHER_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.7.1 Bad Body
+random_bounce:550 5.7.1 Bad envelope from. See - http://e.he.net/11.html
+random_bounce:550 5.7.1 Blacklisted by multi.surbl.org<-<OTHER_IPADDRESS>; .
+random_bounce:550 5.7.1 Blocked by SpamAssassin
+random_bounce:550 5.7.1 Blocked by SpamAssassin (<HEXDUMP>)
+random_bounce:550 5.7.1 Body-Spamschutzregel 152
+random_bounce:550 5.7.1 DAKMail Security (www.daksoftware.com). Message rejected! <SENDER_IPADDRESS> is listed as spam source, IP address was rejected by ivmSIP
+random_bounce:550 5.7.1 Email rejected. Sender domain must have a DNS MX or A/CNAME record.
+random_bounce:550 5.7.1 External client with IP address <OTHER_IPADDRESS> does not have permissions to submit to this server. Visit http://support.microsoft.com/kb/<HEXDUMP> for more information. - on relay of: MAIL FROM:<<ORIG>>
+random_bounce:550 5.7.1 IMF Requested action not taken: message refused, SCL 7-9
+random_bounce:550 5.7.1 Inappropriate body content, please forward this bounced message to <OTHER_USER>@<RCPT_DOMAIN> for assistance.
+random_bounce:550 5.7.1 Inappropriate language use, please consider language use or contact <OTHER_USER>@<RCPT_DOMAIN> for assistance.
+random_bounce:550 5.7.1 LIEBHERR has rejected this message due to content restrictions! If this was incorrect, please add the following text in your Email (subject or body) and send it again: b2bemail4liebherr
+random_bounce:550 5.7.1 Mail from <SENDER_IPADDRESS> rejected, address found in sip.invaluement.com
+random_bounce:550 5.7.1 Mail refused (Bad forward 5 Nov 2006)
+random_bounce:550 5.7.1 Mail refused (Broken forward 5 Nov 2006)
+random_bounce:550 5.7.1 Mail refused (blackholed by uribl.com); Blacklisted, see http://lookup.uribl.com/?domain=cim-10.net
+random_bounce:550 5.7.1 Mail rejected - dcc score 1000
+random_bounce:550 5.7.1 Mail rejected by policy: v=1.0 c=1 p=HY9zIr-oAAAA:8 p=ip3kgvSRAAAA:8 a=S0kOFoWEcOcA:10 a=p/msKeapnYhIE2M5AA/fHQ==:17 a=JiYa2TMnAAAA:8 a=0niObeGLAAAA:8 a=qrqso71NAAAA:8 a=2Hn3SleM4yKi4zMiviIA:9 a=iCBYv4853ObgrhLOreYA:7 a=Tpots-DW4kwvq8Ok4bQ-roTbaOEA:4 a=_x6GTltEcL4A:10
+random_bounce:550 5.7.1 Message Rejected by Content Filter (JCC)
+random_bounce:550 5.7.1 Message content rejected
+random_bounce:550 5.7.1 Message rejected (no valid recipients).
+random_bounce:550 5.7.1 Message rejected as Filtered by ORF SPAM system. Clean up the words and try again.
+random_bounce:550 5.7.1 Message rejected as spam by Content Filtering.
+random_bounce:550 5.7.1 Message rejected as spam by Content Filtering.
+random_bounce:550 5.7.1 Message rejected by the mail server
+random_bounce:550 5.7.1 Message rejected due to content restrictions
+random_bounce:550 5.7.1 Message rejected.
+random_bounce:550 5.7.1 Message rejected. <ORIG>
+random_bounce:550 5.7.1 Message rejected: 3E-01. Web Site URL Found In BlackList, reference http://www.surbl.org
+random_bounce:550 5.7.1 No RDNS for <SENDER_IPADDRESS>
+random_bounce:550 5.7.1 No such user!
+random_bounce:550 5.7.1 No such user!
+random_bounce:550 5.7.1 RCP-P2 Recipient privacy settings disallowed delivery of this message
+random_bounce:550 5.7.1 Recipient not authorized, your IP has been found on a block list
+random_bounce:550 5.7.1 Recipient rejected (R4)
+random_bounce:550 5.7.1 Rejected - listed at multi.surbl.org
+random_bounce:550 5.7.1 Rejected: <SENDER_IPADDRESS> listed at ix.dnsbl.manitu.net
+random_bounce:550 5.7.1 Rejected: You are listed at Trend Micro Reputation Service, see http://www.mail-abuse.com/cgi-bin/lookup?ip_address=<SENDER_IPADDRESS>
+random_bounce:550 5.7.1 Rejecting due to security policy
+random_bounce:550 5.7.1 Relay access denied.
+random_bounce:550 5.7.1 Relaying denied
+random_bounce:550 5.7.1 Requested action not taken: mailbox not available
+random_bounce:550 5.7.1 Requested action not taken: message refused
+random_bounce:550 5.7.1 SPAM
+random_bounce:550 5.7.1 SPAM (UID: 9f0ea264)
+random_bounce:550 5.7.1 SPAM NOT ALLOWED: Contact <OTHER_USER>@<RCPT_DOMAIN> for assistance. (n479dvsG025870)
+random_bounce:550 5.7.1 SPAM rejected
+random_bounce:550 5.7.1 Sender ID (PRA) Not Permitted
+random_bounce:550 5.7.1 Sorry, this message is being rejected as it seems to be a spam !
+random_bounce:550 5.7.1 Su IP esta en lista negra en SPAMBAG - Por favor vea http://www.spambag.org/cgi-bin/spambag?query=<SENDER_IPADDRESS>
+random_bounce:550 5.7.1 This IP was found on a blocked list provided by Barracudacentral.org
+random_bounce:550 5.7.1 This system is configured to reject mail from <SENDER_IPADDRESS> (Host blacklisted in b.barracudacentral.org)
+random_bounce:550 5.7.1 This system is configured to reject mail from r4lmail.recipe4living-recipes.com [<SENDER_IPADDRESS>] (Host blacklisted - Found on Realtime Black List server 'b.barracudacentral.org')
+random_bounce:550 5.7.1 UI001: This message has been blocked. http://<RCPT_SERVER>/email/errorcodes.shtml
+random_bounce:550 5.7.1 URL(s) listed in multi.surbl.org: cim-10.net
+random_bounce:550 5.7.1 URL(s) listed in multi.surbl.org: onlingo.com
+random_bounce:550 5.7.1 Unable to deliver to <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:550 5.7.1 Unable to relay for <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:550 5.7.1 Unable to relay for <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.7.1 Undeliverable message; use other means to contact intended recipient.
+random_bounce:550 5.7.1 Your access to submit messages to this e-mail system has been rejected.
+random_bounce:550 5.7.1 Your email message has been hijacked to link to a spam-advertised website: CIM-10.NET (DTSBL)
+random_bounce:550 5.7.1 Your message has been rejected due to content by the Westat anti-spam gateway. Please contact the intended recipient by telephone for alternate delivery arrangements.
+random_bounce:550 5.7.1 auto ip access denied; ip <SENDER_IPADDRESS>
+random_bounce:550 5.7.1 b.barracudacentral.org We are testing filters. If you get a bbounce please call Matt Carter PC MedEac 919-369-7800.
+random_bounce:550 5.7.1 black listed URL host www.cim-10.net by .black.uribl.com
+random_bounce:550 5.7.1 bulkmail n475bqT3019463 from <SENDER_IPADDRESS> rejected
+random_bounce:550 5.7.1 id n47GKCeJ006721 from <SENDER_IPADDRESS> bulk mail rejected. See http://<RCPT_SERVER>/dcc/
+random_bounce:550 5.7.1 mail 3SDGjp from 72.233.20.51 rejected by DCC
+random_bounce:550 5.7.1 mail from <SENDER_IPADDRESS> rejected for spam/virus content
+random_bounce:550 5.7.1 n479iDqV030815 This message does not comply with required standards.
+random_bounce:550 5.7.1 recipient <<RCPT_USER>@<RCPT_DOMAIN>> relaying denied #288 (l468Y7074640074200)
+random_bounce:550 5.7.1 reject content [ob]
+random_bounce:550 5.7.1 reject content [ws]
+random_bounce:550 5.7.1 reject: Spam value exceeded.
+random_bounce:550 5.7.1 rejected as confirmed spam
+random_bounce:550 5.7.1 rejected client r4lmail.recipe4living-recipes.com [<SENDER_IPADDRESS>], black listed URL domain r4lmail.recipe4living-recipes.com by .multi.surbl.org #762 #790 (l466eh232644704200) If your mail been rejected in error, please fax this entire message to our help desk at 859-344-1872.
+random_bounce:550 5.7.1 rejected content, black listed www.cim-10.net by black.uribl.com #762 #895 (l4645s008112488100) If you believe your mail been rejected in error, please forward this entire message to <OTHER_USER>@<RCPT_DOMAIN>
+random_bounce:550 5.7.1 rejected content, black listed www.cim-10.net by black.uribl.com #762 #895 (l4666v291645695600)
+random_bounce:550 5.7.1 rejected content, black listed www.cim-10.net by multi.surbl.org #762 #895 (l464b4137116282700)
+random_bounce:550 5.7.1 sorry, mail to that recipient is not accepted (#5.7.1)
+random_bounce:550 5.7.1 sorry, no mailbox by that name (#5.7.1)
+random_bounce:550 5.7.1 sorry, no mailbox here by that name. (#5.7.17)
+random_bounce:550 5.7.1 sorry, no mailbox named <RCPT_USER>@<RCPT_DOMAIN> here. (#5.7.17)
+random_bounce:550 5.7.1 sorry, that mailbox isn't in my list of allowed mailboxes (#5.7.1)
+random_bounce:550 5.7.1 sorry, that recipient doesn't exist (#5.7.1)
+random_bounce:550 5.7.1 spam 42
+random_bounce:550 5.7.1 spam access denied; ip <SENDER_IPADDRESS>; see b.barracudacentral.org
+random_bounce:550 5.7.2 This smells like Spam.
+random_bounce:550 5.7.6 Local Policy Violation - PPS
+random_bounce:551 5.0.0 Dropping confirm spam
+random_bounce:551 5.0.0 ^^^^ Your message was not accepted because it may have been identified by our spam filters as possibly containing inappropriate language. The filter picked up the following:Offending word: ass ^^^^^
+random_bounce:551 5.0.0 message classified as spam (RefID: str=0001.<HEXDUMP>.<HEXDUMP>.00C9,ss=4,fgs=0)
+random_bounce:551 5.1.1 user does not exist
+random_bounce:551 5.7.1 Receive of data is denied
+random_bounce:551 5.7.1 mail <HEXDUMP> from <SENDER_IPADDRESS> rejected by DCC
+random_bounce:552 4.2.2 User has full mailbox.
+random_bounce:552 5.0.0 User Inbox Over Mail Quota
+random_bounce:552 5.1.1 sorry, mailbox <RCPT_USER>@<RCPT_DOMAIN> is over quota temporarily (#5.1.1)
+random_bounce:552 5.2.0 Invalid 7bit DATA
+random_bounce:552 5.2.0 oUoP1b001342jBL01UoPBn Goodmail Message Rejected - Mailbox Locked or Suspended
+random_bounce:552 5.2.0 oVQ61b0012wGh9k01VQ6rn Goodmail Message Rejected - RCPT does not exist
+random_bounce:552 5.2.1 sorry, requested mailbox is full. (#5.2.1)
+random_bounce:552 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>> Mailbox has exceeded the limit
+random_bounce:552 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>> The user's mailbox is full {mx095}
+random_bounce:552 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Message would exceed quota for <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:552 5.2.2 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Over quota
+random_bounce:552 5.2.2 Mailbox full
+random_bounce:552 5.2.2 Message would exceed quota for <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:552 5.2.2 Quota exceeded for user <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:552 5.2.2 RFULL <SENDER_IPADDRESS>: Mailbox is full: <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:552 5.2.2 Recipient address rejected: Over quota
+random_bounce:552 5.2.2 The email account that you tried to reach is over quota. Please direct the recipient to http://mail. google.com/support/bin/answer.py?answer=6558 10si12762438qyk.125
+random_bounce:552 5.2.2 The email account that you tried to reach is over quota. Please direct the recipient to http://support.google.com/mail/bin/answer.py?answer=6558 u186si354150yke.138 - gsmtp
+random_bounce:552 5.2.2 User's mailbox is full
+random_bounce:552 5.2.2 quota exceeded
+random_bounce:552 5.2.2 sorry, recipient mailbox is full
+random_bounce:552 5.2.2 sorry, recipients mailbox is full (#5.2.2)
+random_bounce:552 5.5.0 Requested mail action aborted: exceeded storage allocation
+random_bounce:552 5.7.0 This message was blocked because its content presents a potential security issue. Please visit http://support.google.com/mail/bin/answe r.py?answer=6590 to review our message content and attachment content guidelines. ck5si18009187igc.14 - gsmtp
+random_bounce:552 5.7.0 This message was blocked because its content presents a potential security issue. Please visit http://support.google.com/mail/bin/answer.py?answer=6590 to review our message content and attachment content guidelines. 48si1221683yhw.195 - gsmtp
+random_bounce:552 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Quota exceeded : <HEXDUMP>/<HEXDUMP> KiB, 748/<HEXDUMP> files.
+random_bounce:552 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: User has been over quota for > 1 week, email rejected
+random_bounce:552 5.7.1 Content-Policy reject msg: Message is spam; S14446418AbZEGKFn
+random_bounce:552 5.7.1 Message would exceed quota for <<RCPT_USER>@<RCPT_DOMAIN>>. Contact <OTHER_USER>@<RCPT_DOMAIN> for assistance. (n474uFNC023414)
+random_bounce:553 5.0.0 We do not accept mail from spammers ([<SENDER_IPADDRESS>][<SENDER_IPADDRESS>])
+random_bounce:553 5.1.0 ns1.recipes1.postmasterdirect.com does not exist <HEXDUMP>
+random_bounce:553 5.1.1 VS10-RT Possible forgery or deactivated due to abuse (#5.1.1) <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:553 5.1.2 RRLY <SENDER_IPADDRESS>: Relaying denied: <<RCPT_USER>@<RCPT_DOMAIN>>
+random_bounce:553 5.1.8 <<ORIG>>... Domain of sender address <ORIG> does not exist
+random_bounce:553 5.1.8 <<ORIG>>... Domain of sender address <ORIG> does not exist - on relay of: MAIL FROM:<<ORIG>>
+random_bounce:553 5.1.8 <<ORIG>>... Domain of sender address does not exist
+random_bounce:553 5.1.8 <<RCPT_USER>@<RCPT_DOMAIN>>... Domain of sender address <ORIG> does not exist
+random_bounce:553 5.1.8 Domain of sender address &lt;<ORIG>&gt; does not resolve
+random_bounce:553 5.1.8 Domain of sender address <<ORIG>> does not exist
+random_bounce:553 5.1.8 Domain of sender address <<ORIG>> does not exist. See http://<RCPT_SERVER>.
+random_bounce:553 5.1.8 Domain of sender address <<ORIG>> does not exist. See http://postmaster.frontiernet.net.
+random_bounce:553 5.1.8 Domain of sender address <<ORIG>> does not resolve
+random_bounce:553 5.1.8 Domain of sender address ns1.recipes1.postmasterdirect.com does not exist
+random_bounce:553 5.1.8 Domain of sender address ns2.recipes1.postmasterdirect.com does not exist
+random_bounce:553 5.1.8 MMXR <SENDER_IPADDRESS>: No MX record: ns2.recipes1.postmasterdirect.com
+random_bounce:553 5.1.8 Sender address <<ORIG>> domain does not exist
+random_bounce:553 5.1.8 sender <<ORIG>> from ns1.recipes1.postmasterdirect.com has no MX record #434 (l46C3m116490469000)
+random_bounce:553 5.1.8 sender <<ORIG>> from ns1.recipes1.postmasterdirect.com has no MX record #434 (l46ChZ291643098700)
+random_bounce:553 5.3.0 <<ORIG>>... SPAM Source Blocked! - on relay of: MAIL FROM:<<ORIG>>
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... <OTHER_USER>@<RCPT_DOMAIN>.
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Account has been suspended,please see support.ownwebnow.com for details.
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Addressee unknown, relay=[<SENDER_IPADDRESS>]
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... ID=1230 Access denied, sender is <<ORIG>>
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Mail from <SENDER_IPADDRESS> rejected. Refer your mail administrator to http://www.barracudacentral.org/lookups
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Mail from <SENDER_IPADDRESS> rejected;found in www.barracudacentral.org/rbl
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Mail rejected;send email to <OTHER_USER>@<RCPT_DOMAIN> to request block removal - and include the _entire_ error message including the sender and _all_ recipients - see http://www.barracudacentral.org/
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... No such user
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... No such user in <RCPT_DOMAIN>
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... REJECT Mailbox Over Quota
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Rejected - b.barracudacentral.org
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... Rejected by Iserv RBL. If this is an error, please contact our customer service department at 1-888-644-7378. - <SENDER_IPADDRESS>
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... User Unknown
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... User unknown
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... [3] Message rejected - please contact the recipient and refer to IP address: <SENDER_IPADDRESS>
+random_bounce:553 5.3.0 <<RCPT_USER>@<RCPT_DOMAIN>>... account disabled
+random_bounce:553 5.3.0 Barracuda block WITHT
+random_bounce:553 5.3.0 Denied - Spam Suspect - Contact VCI at http://<RCPT_SERVER>/services/spamwatch/blocked.php
+random_bounce:553 5.3.0 Mail from <SENDER_IPADDRESS> Rejected - see http://www.barracudanetworks.com/reputation/?pr=1&ip=<SENDER_IPADDRESS>
+random_bounce:553 5.3.0 Spam rejected - see http://www.barracudacentral.org/rbl/removal-request
+random_bounce:553 5.3.0 flph256 - n47M2GpB018006, DNSBL:ATTRBL 521< <SENDER_IPADDRESS> >_is_blocked.__For_information_see_http://att.net/blocks
+random_bounce:553 5.4.3 Hello [<SENDER_IPADDRESS>], for MAIL FROM address <<ORIG>> the policy analysis reports DNS error with your source domain.
+random_bounce:553 5.5.3 sorry, that domain isn't in my list of allowed rcpthosts (#5.5.3 - chkuser)
+random_bounce:553 5.7.1 Domain does not exists relaying not permitted
+random_bounce:553 5.7.1 Message filtered. Please see the FAQs section on spam at http://www.messagelabs.com/support/
+random_bounce:553 5.7.1 Message filtered. Refer to the Troubleshooting page at http://www.symanteccloud.com/troubleshooting for more information. (#5.7.1)
+random_bounce:553 5.7.1 Policy rejection on the target address
+random_bounce:553 5.7.1 This server does not accept mail for that address (#5.7.1)
+random_bounce:553 5.7.1 sorry, fake from address domain (#5.7.1)
+random_bounce:553 5.7.1 sorry, mail to that recipient is not accepted on this system (#5.7.1)
+random_bounce:553 5.7.1 sorry, rcpt user invalid (#5.7.1)
+random_bounce:553 5.7.1 sorry, that address isn't in my list of allowed recipients (#5.7.1)
+random_bounce:553 5.7.1 sorry, that domain isn't in my list of allowed rcpthosts (#5.7.1)
+random_bounce:553 5.7.1 sorry, this recipient is not in my validrcptto list (#5.7.1)
+random_bounce:553 5.7.1 sorry, your envelope sender domain must exist (#5.7.1)
+random_bounce:553 5.7.1 sorry, your envelope sender must exist (#5.7.1)
+random_bounce:553 5.7.1 sorry, your mail was administratively denied. (#5.7.1)
+random_bounce:554 5.0.0 Cornell doesn't accept mail that our filters rate at and above 80 percent probability of being spam. Reference http://<RCPT_SERVER>/computer/email/puremessage/rejected.html for more information.
+random_bounce:554 5.0.0 Spam.
+random_bounce:554 5.0.0 The account <RCPT_USER>@<RCPT_DOMAIN> can not receive mail outside the district.
+random_bounce:554 5.0.0 rewrite: excessive recursion (max 50), ruleset canonify
+random_bounce:554 5.1.0 Sender Denied
+random_bounce:554 5.1.1 Sorry, no mailbox here by that name. (#5.1.1)
+random_bounce:554 5.1.1 Unknown Recipient (#5.1.1)
+random_bounce:554 5.1.3 qq Sorry, no valid recipients (#5.1.3)
+random_bounce:554 5.1.6 delivery error: Sorry your message to <RCPT_USER>@<RCPT_DOMAIN> cannot be delivered. This account has been disabled or discontinued.
+random_bounce:554 5.1.8 <<ORIG>>: Sender address rejected: Domain not found
+random_bounce:554 5.2.1 : (HVU:B1) http://postmaster.info.aol.com/errors/55
+random_bounce:554 5.2.1 Mailaddress is administratively disabled. (#5.2.1)
+random_bounce:554 5.2.1 Mailaddress is administratively disabled. <<RCPT_USER>@<RCPT_DOMAIN>> (#5.2.1)
+random_bounce:554 5.2.2 Mailbox has exceeded the limit
+random_bounce:554 5.2.2 mailbox <<RCPT_USER>@<RCPT_DOMAIN>> is over quota - queue ID n474Ihiq022509
+random_bounce:554 5.3.0 <HEXDUMP>.1731.k077 Destination server rejected message contents
+random_bounce:554 5.3.0 mail server permanently rejected message (#5.3.0)
+random_bounce:554 5.3.0 message rejected due to spam content (#5.3.0)
+random_bounce:554 5.3.0 rewrite: map @. not found
+random_bounce:554 5.3.2 sorry, invalid message content (#5.3.2)
+random_bounce:554 5.6.0 Message rejected by content filter. Possible Spam
+random_bounce:554 5.6.0 Sorry, this message appears to be spam (#5.6.0)
+random_bounce:554 5.6.0 This message has been scored as spam with a probability of more than 90%
+random_bounce:554 5.6.0 This message has been scored as spam with a probability of more than 95%
+random_bounce:554 5.6.0 Your message has been identified as junk mail and has been rejected. If your message is legitimate, you can browse to http://milwaukeepc.com/whitelist to add yourself to the whitelist, at which point you will be able to successfully send e-mail again.
+random_bounce:554 5.7.0 Reject, id=<HEXDUMP>-02 - SPAM
+random_bounce:554 5.7.1 - ERROR: Mail refused - <<SENDER_IPADDRESS>> - See http://security.rr.com/cgi-bin/block-lookup?<SENDER_IPADDRESS>
+random_bounce:554 5.7.1 <<ORIG>>: Sender address rejected: Access denied
+random_bounce:554 5.7.1 <<ORIG>>: Sender address rejected: Blocked by this recipient
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: <SENDER_IPADDRESS> is listed in b.barracudacentral.org, sip.invaluement.com / recipe4living-recipes.com is listed in ob.surbl.org
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Access denied
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Account expired
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Address locked or deactivated; see http://mail.messagingengine.com/docs/locked.html
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Email not Found/Disabled
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Inactive user
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Nonexistent user
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Policy Rejection- API Policy Server - Quota Exceeded, Try again later.
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Policy Rejection- API Policy Server- Too Many Connections, Quota Exceeded.
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: Policy Rejection- API Policy Server- Your mail server has been blacklisted, please contact your ISP or API Digital 256-428-8701
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: This user is inactive. See http://<RCPT_SERVER>/inactive.html
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: unknown domain name
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: user <RCPT_USER>@<RCPT_DOMAIN> cannot receive mail
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: user <RCPT_USER>@<RCPT_DOMAIN> does not exist
+random_bounce:554 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Relay access denied
+random_bounce:554 5.7.1 <END-OF-MESSAGE>: End-of-data rejected: email account is disabled
+random_bounce:554 5.7.1 <END-OF-MESSAGE>: End-of-data rejected: email account is over quota (<HEXDUMP>+6004><HEXDUMP>)
+random_bounce:554 5.7.1 <END-OF-MESSAGE>: End-of-data rejected: email account is over quota (<HEXDUMP>+6035><HEXDUMP>)
+random_bounce:554 5.7.1 <END-OF-MESSAGE>: End-of-data rejected: email account is over quota (<HEXDUMP>+<HEXDUMP>><HEXDUMP>)
+random_bounce:554 5.7.1 <SENDER_IPADDRESS>: on real-time blacklist b.barracudacentral.org
+random_bounce:554 5.7.1 <qmail1.example.com[<SENDER_IPADDRESS>]>: Client host rejected: Delivery Failure
+random_bounce:554 5.7.1 Abusive connections. Please try again later.
+random_bounce:554 5.7.1 Action Returned message to Sender:<<ORIG>>, Subject:Mom, get the help you need for school, Messages Rejected, Notify Recipient
+random_bounce:554 5.7.1 BRBL entry - see <http://www.barracudanetworks.com/reputation/?pr=1&ip=<SENDER_IPADDRESS>>
+random_bounce:554 5.7.1 Blacklisted by Contact the postmaster of this domain for resolution. This attempt has been logged.
+random_bounce:554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.
+random_bounce:554 5.7.1 Blacklisted by cim-10.net.black.uribl.com Contact the postmaster of this domain for resolution. This attempt has been logged.
+random_bounce:554 5.7.1 Blacklisted by cim-10.net.multi.surbl.org Contact the postmaster of this domain for resolution. This attempt has been logged.
+random_bounce:554 5.7.1 Blacklisted by multi.surbl.org<-<OTHER_IPADDRESS>; Contact the postmaster of this domain for resolution. This attempt has been logged.
+random_bounce:554 5.7.1 Client host rejected: cannot find your hostname, [<SENDER_IPADDRESS>]
+random_bounce:554 5.7.1 Command rejected
+random_bounce:554 5.7.1 DENIED [<SENDER_IPADDRESS>,SAHITS] see http://<RCPT_SERVER>/ir/emailreject.php?ip=<SENDER_IPADDRESS>&code=SAHITS
+random_bounce:554 5.7.1 Denied - Spam Suspected - http://<RCPT_SERVER>/services/spamwatch/blocked.php
+random_bounce:554 5.7.1 Denied - Spam Suspected - http://www.vci.net/services/spamwatch/blocked.php
+random_bounce:554 5.7.1 Email rejected based on spam rules.
+random_bounce:554 5.7.1 Error, send your mail to <OTHER_USER>@<RCPT_DOMAIN> to ensure delivery
+random_bounce:554 5.7.1 Error: Account disabled (<RCPT_USER>@<RCPT_DOMAIN>)
+random_bounce:554 5.7.1 Error: Mailbox over quota
+random_bounce:554 5.7.1 Forbidden for policy reasons
+random_bounce:554 5.7.1 MAIL FROM [<ORIG>] not allowed (#5.7.1)
+random_bounce:554 5.7.1 Mail appears to be unsolicited -- send error reports to <OTHER_USER>@<RCPT_DOMAIN>
+random_bounce:554 5.7.1 Mail from <SENDER_IPADDRESS> refused - see http://www.barracudanetworks.com/reputation?pr=1&ip=<SENDER_IPADDRESS>
+random_bounce:554 5.7.1 Message appears to be spam, go to http://<RCPT_SERVER>/email_block if you feel this is a mistake , rejected
+random_bounce:554 5.7.1 Message blocked due to spam content in the message
+random_bounce:554 5.7.1 Message cannot be accepted, content filter rejection Rejected - Spam
+random_bounce:554 5.7.1 Message cannot be accepted, rules rejection
+random_bounce:554 5.7.1 Message cannot be accepted, spam rejection
+random_bounce:554 5.7.1 Message refused by BannedWord check. This email has been rejected. The email message was detected as spam.
+random_bounce:554 5.7.1 Message refused by Bayesian check. This email has been rejected. The email message was detected as spam.
+random_bounce:554 5.7.1 Message rejected <RCPT_USER>ause of unacceptable content. For help, please quote incident ID <HEXDUMP>.
+random_bounce:554 5.7.1 Message rejected because of unacceptable content. For help, please quote incident ID <HEXDUMP>.
+random_bounce:554 5.7.1 Message rejected under suspicion of spam.
+random_bounce:554 5.7.1 Message rejected, SpamAssassin scored: 9.674 points TESTS=HTML_MESSAGE,IISDATED_4_25_2009,MIME_HTML_ONLY,NO_216_174_43CLASSC
+random_bounce:554 5.7.1 Message scored extremely high on spam scale. No incident created.
+random_bounce:554 5.7.1 Message scored extremely high on spam scale. No incident created. This Site is protected by SpamAway (CanIt)
+random_bounce:554 5.7.1 Message was rejected as it contained multiple characteristics of SPAM. <HEXDUMP>
+random_bounce:554 5.7.1 Permission denied
+random_bounce:554 5.7.1 Phrase Filter #<HEXDUMP>
+random_bounce:554 5.7.1 Recipient no longer on server: <RCPT_USER>@<RCPT_DOMAIN>
+random_bounce:554 5.7.1 Rejected - URL/Phone SPAM.
+random_bounce:554 5.7.1 Rejected <SENDER_IPADDRESS> found in barracudacentral.org
+random_bounce:554 5.7.1 Rejected, id=<HEXDUMP>-09 - SPAM
+random_bounce:554 5.7.1 Rejected, id=<HEXDUMP>-10 - SPAM
+random_bounce:554 5.7.1 Rejected... Message identified as UBE (spam). If you feel you have received this message in error CALL the intended recipient and ask them to report the issue to support services.
+random_bounce:554 5.7.1 Rejected: Message looks like SPAM, please see http://<RCPT_SERVER>
+random_bounce:554 5.7.1 Rejected: This message appears to be spam
+random_bounce:554 5.7.1 SPAM rejected.
+random_bounce:554 5.7.1 Sender <ORIG> is blacklisted
+random_bounce:554 5.7.1 Service unavailable; Client host [<SENDER_IPADDRESS>] blocked using <RCPT_SERVER>; IP banned on Thu, 07 May 2009 06:00:01 -0400 for excessive unwanted email. It will be delisted 3 day(s) from that time. Inform your ISP of this message. This block will become permanent if left unresolved.
+random_bounce:554 5.7.1 Service unavailable; Sender address [<ORIG>] blocked using rhsbl.orbitrbl.com; Domain Black Listed - http://www.orbitrbl.com/rbl/rbl.php?ip=*.example.com
+random_bounce:554 5.7.1 Service unavailable; Sender address [<ORIG>] found on high spam probability list
+random_bounce:554 5.7.1 Sorry, message identified as spam and rejected. If this was an error contact <OTHER_USER>@<RCPT_DOMAIN> with a business requirement.
+random_bounce:554 5.7.1 Spam filter: Please Visit http://www.ncmail.net/rejectedemails.htm to resolve issues
+random_bounce:554 5.7.1 The message from (<<ORIG>>) with the subject of (Mom, get the help you need for school) matches a profile the Internet community may consider spam. Please revise your message before resending.
+random_bounce:554 5.7.1 This email has been blocked by SpamMuncher because of black URL.(black url http://www.cim-10.net/308/emailers/s4m/4760/images/index_01.jpg)
+random_bounce:554 5.7.1 This message has been blocked because ASE reports it as spam.
+random_bounce:554 5.7.1 This message has been blocked because it contains FortiGuard - AntiSpam blocking URL(s).(black url http://affiliate.avgtracker.com/oo/oo.php?sid=109)
+random_bounce:554 5.7.1 This message has been blocked because it contains FortiShield blocking URL(s).(black url http://affiliate.avgtracker.com/oo/oo.php?sid=37)
+random_bounce:554 5.7.1 This message has been blocked because it contains FortiSpamshield blocking URL(s).(black url http://affiliate.avgtracker.com/oo/oo.php?sid=109)
+random_bounce:554 5.7.1 This message has been blocked because it contains a banned word.
+random_bounce:554 5.7.1 This message has been blocked because it contains a banned word.(no.5 pattern matched)
+random_bounce:554 5.7.1 This message has been blocked because it contains freeGuard SP - AntiSpam blocking URL(s).(black url http://affiliate.avgtracker.com/oo/oo.php?sid=109)
+random_bounce:554 5.7.1 This message has been blocked because it is from a FortiGuard - AntiSpam black IP address.(connection black ip <SENDER_IPADDRESS>)
+random_bounce:554 5.7.1 This message has been blocked because it is from a FortiShield black IP address.(connection black ip <SENDER_IPADDRESS>)
+random_bounce:554 5.7.1 This message has been blocked because it is from a FortiSpamshield black IP address.(connection black ip <SENDER_IPADDRESS>)
+random_bounce:554 5.7.1 This message has been blocked because it is from a freeGuard SP - AntiSpam black IP address.(connection black ip <SENDER_IPADDRESS>)
+random_bounce:554 5.7.1 This message has been blocked because the return email domain is invalid.(failed to obtain DNS record for domain example.com)
+random_bounce:554 5.7.1 UBE Not Welcome Here!
+random_bounce:554 5.7.1 URL/Phone Number Filter - avgtracker.com
+random_bounce:554 5.7.1 URL/Phone Number Filter - cim-10.net
+random_bounce:554 5.7.1 URL/Phone Number Filter - in2uc.com
+random_bounce:554 5.7.1 We don't handle spam here.
+random_bounce:554 5.7.1 Your email has been rejected by our SPAM and Virus filter. Filters of this sort are not perfect, and will occasionally block a legitimate message from one of our legitimate contacts. If this is the case, we apologize, and request that you contact our office via phone, fax or postal mail and we will exempt your address from the filter. Thank you for your understanding. *Reason Code: URL/Phone # Filter
+random_bounce:554 5.7.1 Your message failed several antispam checks (SCORING) and it was rejected or collected on <RCPT_DOMAIN> spambox. Please be sure your mailserver is configured correctly (spf , HELO, PTR) or try using an alternative email or smtp.
+random_bounce:554 5.7.1 Your message has bee blocked by Anti-Spam filer maintained by Sims Bark. Please contact the intended recipient by telphone.
+random_bounce:554 5.7.1 Your message has been rejected and did not reach its intended recipient. If your message was rejected in error, please call the intended recipient and have them contact the Network Administrator. We apologize for any inconvenience that this may have caused. URL
+random_bounce:554 5.7.1 Your message was rejected as spam
+random_bounce:554 5.7.1 [SC1733] Your email was rejected for policy reasons. Reasons for rejection may be related to content with spam-like characteristics or IP/domain reputation problems. Please contact your Email/Internet Service Provider for additional help.
+random_bounce:554 5.7.1 address disabled
+random_bounce:554 5.7.1 example.com is blacklisted.
+random_bounce:554 5.7.1 na lista negra do CanIt AntiSpam Unodata
+random_bounce:556 5.7.1 Message refused by Lockheed Martin due to content or security policy violation.
+random_bounce:559 5.7.1 <<RCPT_USER>@<RCPT_DOMAIN>>: Recipient address rejected: - Cuenta Expirada por Falta de Uso / Account expired
+random_bounce:571 5.7.1 Message contains spam or virus : 1585:<HEXDUMP>|5439
+random_bounce:572 5.7.2 User <<RCPT_USER>> has discontinued his subscription

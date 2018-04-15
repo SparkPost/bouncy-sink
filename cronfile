@@ -1,0 +1,12 @@
+# crontab -e, then edit and paste in the following:
+#
+# The paths below assume you have a copy of the project installed in your home directory using
+#   git clone https://github.com/SparkPost/bouncy-sink.git
+#
+# such that the bouncy-sink.ini configuration file is in ~/bouncy-sink, and the Python script is in ~/bouncy-sink/src
+#
+# sudo privilege is used to run the script, so that it gains permission to read from and modify contents of the inbound mail dir
+#
+# This executes the script every 1 minute
+
+*/1 * * * * cd ~/bouncy-sink; sudo src/consume-mail.py -d /var/spool/mail/inbound/ >/dev/null 2>&1

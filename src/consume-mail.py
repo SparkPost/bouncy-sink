@@ -330,7 +330,7 @@ def consumeFiles(fnameList, cfg):
                         except Exception as e:
                             logger.error(str(e))
         endTime = time.time()
-        logger.info('** Finishing, run time(s)={0:.3f}'.format(endTime-startTime))
+        logger.info('** Finishing:run time(s)={0:.3f}'.format(endTime-startTime))
 
 # -----------------------------------------------------------------------------------------
 # Main code

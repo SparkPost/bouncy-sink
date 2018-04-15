@@ -1,0 +1,141 @@
+#
+# $Id: config 16786 2017-04-07 20:19:49Z juan $
+# Sample PowerMTA configuration file
+#
+
+#
+# E-mail address for mailer's administrator (please specify!)
+#
+postmaster steve.tuck@sparkpost.com
+
+# IP address(es) and port(s) on which to listen for incoming SMTP connections
+# This will map through the open/click/FBL/OOB action
+#
+smtp-listener 172.31.3.252:25	# set this to your host's secondary IP
+
+# Set this to allow incoming STARTTLS
+# 
+smtp-server-tls-certificate  /var/lib/pmta/smtp-server-certificate.pem
+
+# Blackhole settings. 
+# Rejects (4xx/5xx) or silently accepts and blachholes traffic on this IP
+#
+total-max-smtp-in 400
+total-max-file 100
+
+dummy-smtp-has-chunking yes
+dummy-smtp-has-pipelining yes
+dummy-smtp-has-mailmerge yes
+dummy-smtp-blacklist /etc/pmta/blacklist.dat
+dummy-smtp-log-blacklist yes
+dummy-smtp-blacklist-bounce-method random
+dummy-smtp-blacklist-bounce-percent 4			# blackhole receives 50% of ELB traffic, giving 2% in-band bounce rate
+dummy-smtp-port 25
+dummy-smtp-ip 172.31.4.82	# set this to your host's primary IP
+#
+# Settings per source IP address (for incoming SMTP connections)
+#
+<source 127.0.0.1>
+    always-allow-relaying yes   # allow feeding from 127.0.0.1
+    process-x-virtual-mta yes   # allow selection of a virtual MTA
+    max-message-size unlimited
+    smtp-service yes            # allow SMTP service
+</source>
+
+<source ::1>
+    always-allow-relaying yes   # allow feeding from ::1
+    process-x-virtual-mta yes   # allow selection of a virtual MTA
+    max-message-size unlimited
+    smtp-service yes            # allow SMTP service
+</source>
+
+<source 0/0>                 # matches all
+    log-connections no
+    log-commands    no       # WARNING: verbose!
+    log-data        no       # WARNING: even more verbose!
+    allow-starttls yes
+    allow-unencrypted-plain-auth no
+    add-date-header true
+    always-allow-relaying yes   # allow traffic through to the consume-mail process
+</source>
+
+#
+# SMTP users (authenticated via SMTP AUTH)
+#
+#<smtp-user API>
+#    password "changeme"
+#</smtp-user>
+
+#
+# Settings per outgoing domain
+#
+#<domain discard.port25.com>
+#    max-smtp-out    800
+#    route           [192.168.0.1]:2525  # bypasses DNS resolution
+#</domain>
+#
+#<domain test.port25.com>
+#    max-smtp-out    1
+#    log-connections yes
+#    log-commands    yes     # WARNING: verbose!
+#    log-resolution  no      # WARNING: verbose!
+#    log-data        no      # WARNING: even more verbose!
+#</domain>
+
+#<domain {sparkpost}>
+#    auth-username Your_API_key_goes_here    # generate under Account/API Keys
+#</domain>
+
+#
+# Files placed in this directory - PMTA will attempt to deliver them. Use for FBLs, OOBs etc
+pickup /etc/pmta/pickup /etc/pmta/badmail
+
+<domain *>
+    type file
+    file-format newfile-plain
+    file-destination /var/spool/mail/inbound
+    retry-after 1m
+</domain>
+
+#
+# Port used for HTTP management interface
+#
+http-mgmt-port 8080
+
+#
+# IP addresses allowed to access the HTTP management interface, one
+# per line
+#
+http-access 127.0.0.1 monitor
+http-access ::1 monitor
+#http-access 10.1.0.10 none
+#http-access 10.1.0/24 admin
+
+#
+# Whether to run the PowerMTA deamon as root
+#
+run-as-root no
+
+#
+# Logging file name
+#
+log-file /var/log/pmta/pmta.log   # logrotate is used for rotation
+
+#
+# Accounting file(s)
+#
+<acct-file /var/log/pmta/acct.csv>
+#    move-to /opt/myapp/pmta-acct   # configure as fit for your application
+    move-interval 5m
+    max-size 50M
+    delete-after 8d
+</acct-file>
+
+#
+# Spool directories
+#
+<spool /var/spool/pmta>
+    deliver-only no
+</spool>
+
+# EOF
