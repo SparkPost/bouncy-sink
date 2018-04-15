@@ -215,7 +215,6 @@ class MyHTMLOpenParser(HTMLParser):
             for attr in attrs:
                 if attr[0] == 'src':
                     url = attr[1]
-                    print('GET', url)
                     r = requests.get(url)                           # 'open' the mail by getting image(s)
 
 class MyHTMLClickParser(HTMLParser):
@@ -224,7 +223,6 @@ class MyHTMLClickParser(HTMLParser):
             for attr in attrs:
                 if attr[0] == 'href':
                     url = attr[1]
-                    print('GET', url)
                     r = requests.get(url)                           # 'click' the links by getting them
 
 def xstr(s):
@@ -326,7 +324,7 @@ def consumeFiles(fnameList, cfg):
                     with open(fname) as fIn:
                         done = fname[:-4] + '.old'
                         try:
-                            # os.rename(fname, done)  # atomic operation TODO: add back in
+                            os.rename(fname, done)  # atomic operation
                             msg = email.message_from_file(fIn, policy=policy.default)
                             processMail(msg, fname, probs, logger)
                         except Exception as e:
