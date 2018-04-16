@@ -12,20 +12,29 @@ from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
 
+def baseProgName():
+    return os.path.basename(sys.argv[0])
+
+def configFileName():
+    return os.path.splitext(baseProgName())[0] + '.ini'
+
 def printHelp():
-    progName = sys.argv[0]
-    shortProgName = os.path.basename(progName)
     print('\nNAME')
-    print('   ' + shortProgName + '[-f file | -d dir]')
+    print('   ' + baseProgName() + ' [-f file | -d dir]')
     print('   Consume inbound mails, generating opens, clicks, OOBs and FBLs\n')
+    print('   Config file {} for must be present in current directory'.format(configFileName()))
+    print('')
     print('Parameters')
-    print('    (no params)  - ingest a single mail from stdin, e.g. cat mail.txt | ./consume-mail.py')
+    print('    (no params)  - ingest a single mail from stdin, e.g. cat mail.msg | src/{}'.format(baseProgName()))
     print('    -f file      - ingest a single mail file in RFC822 format')
     print('    -d directory - look for *.msg files, ingest them, renaming to *.old')
     print('')
     print('Output')
-    print('    logfile of actions taken created in ' + logfilename)
+    print('    logfile of actions taken created')
 
+# -----------------------------------------------------------------------------------------
+# FBL and OOB handling
+# -----------------------------------------------------------------------------------------
 ArfFormat = '''From: <{fblFrom}>
 Date: Mon, 02 Jan 2006 15:04:05 MST
 Subject: FW: Earn money
@@ -208,22 +217,49 @@ def oobGen(mail):
         except smtplib.SMTPException as err:
             return '!OOB endpoint returned SMTP error: ' + str(err)
 
+
+# -----------------------------------------------------------------------------------------
+# Open and Click handling
+# -----------------------------------------------------------------------------------------
+
+# Class holding persistent requests session IDs
+class persistentSession():
+    def __init__(self, Nthreads):
+        # Set up our connection pool
+        self.svec = [None] * Nthreads
+        for i in range(0, Nthreads):
+            self.svec[i] = requests.session()
+
+    def id(self, i):
+        return self.svec[i]
+
+    def size(self):
+        return len(self.svec)
+
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
+    def __init__(self, s):
+        HTMLParser.__init__(self)
+        self.requestSession = s                                     # Use persistent 'requests' session for speed
+
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
             for attr in attrs:
                 if attr[0] == 'src':
                     url = attr[1]
-                    r = requests.get(url)                           # 'open' the mail by getting image(s)
+                    self.requestSession.get(url)                    # 'open' the mail by getting image(s)
 
 class MyHTMLClickParser(HTMLParser):
+    def __init__(self, s):
+        HTMLParser.__init__(self)
+        self.requestSession = s                                     # Use persistent 'requests' session for speed
+
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
             for attr in attrs:
                 if attr[0] == 'href':
                     url = attr[1]
-                    r = requests.get(url)                           # 'click' the links by getting them
+                    self.requestSession.get(url)                    # 'click' the links by getting them
 
 def xstr(s):
     return '' if s is None else str(s)
@@ -241,14 +277,16 @@ def processMail(mail, fname, probs, logger):
             bd = mail.get_body('text/html')
             if bd:                                                  # if no body to parse, ignore
                 body = bd.as_string()
-                htmlOpenParser = MyHTMLOpenParser()
+                assert persist.size() >= 1
+
+                htmlOpenParser = MyHTMLOpenParser(persist.id(0))
                 logline += ',Open'
                 htmlOpenParser.feed(body)
                 if random.random() <= probs['OpenAgain_Given_Open']:
                     htmlOpenParser.feed(body)
                     logline += ',OpenAgain'
                 if random.random() <= probs['Click_Given_Open']:
-                    htmlClickParser = MyHTMLClickParser()
+                    htmlClickParser = MyHTMLClickParser(persist.id(0))
                     htmlClickParser.feed(body)
                     logline += ',Click'
                     if random.random() <= probs['ClickAgain_Given_Click']:
@@ -271,20 +309,21 @@ def checkSetCondProb(P, a, b, logger):
         P[aGivenbName] = PaGivenb
         return True
 
+# Take the overall percentages and adjust them according to how much traffic we expect to receive. This app would not see
+# the 'upstream handled' traffic percentage as PMTA blackholes / in-band-bounces this automatically via PMTA config, not in this application
+# Express all values as probabilities 0 <= p <= 1.0
 def getBounceProbabilities(cfg, logger):
-    # Take the overall percentages and adjust them according to how much traffic we expect to receive. This app would not see
-    # the 'upstream handled' traffic percentage as PMTA blackholes / in-band-bounces this automatically via PMTA config, not in this application
-    # Express all values as probabilities 0 <= p <= 1.0
-    s = 'bouncy-sink'                                               # config file section name
     try:
-        thisAppTraffic  = 1 - float(cfg.get(s, 'Upstream_Handled') ) / 100
+        thisAppTraffic  = 1 - cfg.getfloat('Upstream_Handled') / 100
+
         P = {
-            'OOB'         : (float(cfg.get(s, 'OOB_percent') ) / 100) / thisAppTraffic,
-            'FBL'         : (float(cfg.get(s, 'FBL_percent') ) / 100) / thisAppTraffic,
-            'Open' : (float(cfg.get(s, 'Open_percent') ) / 100) / thisAppTraffic,
-            'OpenAgain'   : (float(cfg.get(s, 'Open_Again_percent') ) / 100) / thisAppTraffic,
-            'Click': (float(cfg.get(s, 'Click_percent') ) / 100) / thisAppTraffic,
-            'ClickAgain'  : (float(cfg.get(s, 'Click_Again_percent') ) / 100) / thisAppTraffic
+            'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
+            'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
+            'FBL'       : cfg.getfloat('FBL_percent') / 100 / thisAppTraffic,
+            'Open'      : cfg.getfloat('Open_percent') / 100 / thisAppTraffic,
+            'OpenAgain' : cfg.getfloat('Open_Again_percent') / 100 / thisAppTraffic,
+            'Click'     : cfg.getfloat('Click_percent') / 100 / thisAppTraffic,
+            'ClickAgain': cfg.getfloat('Click_Again_percent') / 100 / thisAppTraffic
         }
         # calculate conditional open & click probabilities, given a realistic state sequence would be
         # Open?
@@ -304,13 +343,14 @@ def getBounceProbabilities(cfg, logger):
 def consumeFiles(fnameList, cfg):
     startTime = time.time()                                         # measure run time
     # Log some info on mail that is processed
-    logfilename = 'consume-mail.log'
+    logfilename = cfg.get('Logfile', 'bouncy-sink.log')
     logger = logging.getLogger('consume-mail')
     logger.setLevel(logging.INFO)
     fh = logging.FileHandler(logfilename)
     formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+
     probs = getBounceProbabilities(cfg, logger)
     if probs:
         if fnameList is None:
@@ -340,21 +380,23 @@ def consumeFiles(fnameList, cfg):
 # -d        directory   (read process and delete any file with extension .msg)
 # (blank)   stdin       (e.g. for pipe input)
 
-configFile = 'bouncy-sink.ini'
 config = configparser.ConfigParser()
-config.read_file(open(configFile))
+config.read_file(open(configFileName() ))
+cfg = config['Bouncy_Sink']
+Nthreads = cfg.getint('Threads', 1)
+persist = persistentSession(Nthreads)  # hold a set of persistent 'requests' sessions
 
 if len(sys.argv) >= 3:
     if sys.argv[1] == '-f':
-        consumeFiles([sys.argv[2]], config)
+        consumeFiles([sys.argv[2]], cfg)
     elif sys.argv[1] == '-d':
         dir = sys.argv[2].rstrip('/')                               # strip trailing / if present
         fnameList = glob.glob(os.path.join(dir, '*.msg'))
-        consumeFiles(fnameList, config)
+        consumeFiles(fnameList, cfg)
     else:
         printHelp()
 else:
     if len(sys.argv) <= 1:                                           # empty args - read stdin
-        consumeFiles(None, config)
+        consumeFiles(None, cfg)
     else:
         printHelp()
