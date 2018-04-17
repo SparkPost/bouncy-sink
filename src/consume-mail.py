@@ -362,9 +362,11 @@ def consumeFiles(fnameList, cfg):
             for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
-                        done = fname[:-4] + '.old'
+                        # done = fname[:-4] + '.old'
                         try:
-                            os.rename(fname, done)  # atomic operation
+                            # os.rename(fname, done)                # atomic operation
+                            os.remove(fname)
+                            # OK to remove while open, contents destroyed once file handle closed
                             msg = email.message_from_file(fIn, policy=policy.default)
                             processMail(msg, fname, probs, logger)
                         except Exception as e:

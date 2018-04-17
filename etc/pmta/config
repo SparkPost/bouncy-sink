@@ -56,8 +56,8 @@ dummy-smtp-ip 172.31.4.82	# set this to your host's primary IP
     allow-starttls yes
     allow-unencrypted-plain-auth no
     add-date-header true
-    always-allow-relaying yes   # allow traffic through to the consume-mail process
-    check-dkim-inbound yes    	# Check DKIM record
+    always-allow-relaying no # stop spam traffic !!!
+    check-dkim-inbound yes   # Check DKIM record
 </source>
 
 #
@@ -91,7 +91,9 @@ dummy-smtp-ip 172.31.4.82	# set this to your host's primary IP
 # Files placed in this directory - PMTA will attempt to deliver them. Use for FBLs, OOBs etc
 pickup /etc/pmta/pickup /etc/pmta/badmail
 
-<domain [*.]bouncy-sink.trymsys.net>
+relay-domain [*.]bouncy-sink.trymsys.net
+
+<domain *>
     type file
     file-format newfile-plain
     file-destination /var/spool/mail/inbound
