@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random
+import logging, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, re
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
@@ -169,12 +169,14 @@ def mapRP_MXtoSparkPostFbl(returnPath):
     except dns.exception.DNSException as err:
         return None, None
 
+def returnPathAddrIn(mail):
+    return mail['Return-Path'].lstrip('<').rstrip('>')              # Remove < > brackets from address
 #
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
 def fblGen(mail):
-    returnPath = mail['Return-Path'].lstrip('<').rstrip('>')        # Remove < > brackets from address
+    returnPath = returnPathAddrIn(mail)
     if not returnPath:
         return '!Missing Return-Path:'
     elif not mail['to']:
@@ -199,7 +201,7 @@ def fblGen(mail):
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
 #
 def oobGen(mail):
-    returnPath = mail['Return-Path'].lstrip('<').rstrip('>')        # Remove < > brackets from address
+    returnPath = returnPathAddrIn(mail)
     mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
     if not mx:
         return '!OOB not sent, Return-Path not recognized as SparkPost'
@@ -265,37 +267,44 @@ def xstr(s):
     return '' if s is None else str(s)
 
 def processMail(mail, fname, probs, logger):
-    # cautiously add header text as some rogue / spammy messages seen coming in are missing From and To addresses
+    # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
-    # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-    if random.random() <= probs['OOB']:
-        resOob = oobGen(mail)
-        logline += ',' + resOob
-    else:
-        # open / open again / click / click again logic, as per conditional probabilities
-        if random.random() <= probs['Open']:
-            bd = mail.get_body('text/html')
-            if bd:                                                  # if no body to parse, ignore
-                body = bd.as_string()
-                assert persist.size() >= 1
-
-                htmlOpenParser = MyHTMLOpenParser(persist.id(0))
-                logline += ',Open'
-                htmlOpenParser.feed(body)
-                if random.random() <= probs['OpenAgain_Given_Open']:
+    # Test that message was checked by PMTA and has valid DKIM signature
+    auth = mail['Authentication-Results']
+    if auth != None and 'dkim=pass' in auth:
+        dkim_d = re.search('d=(.+?);\s', mail['DKIM-Signature']).group(1)
+        rpDomainPart = returnPathAddrIn(mail).split('@')[1]
+        if dkim_d != rpDomainPart:
+            logline += ',!Return-Path: {} & d={} not aligned'.format(rpDomainPart, dkim_d)
+        # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
+        if random.random() <= probs['OOB']:
+            resOob = oobGen(mail)
+            logline += ',' + resOob
+        else:
+            # open / open again / click / click again logic, as per conditional probabilities
+            if random.random() <= probs['Open']:
+                bd = mail.get_body('text/html')
+                if bd:                                                  # if no body to parse, ignore
+                    body = bd.as_string()
+                    htmlOpenParser = MyHTMLOpenParser(persist.id(0))    # use persistent session ID
+                    logline += ',Open'
                     htmlOpenParser.feed(body)
-                    logline += ',OpenAgain'
-                if random.random() <= probs['Click_Given_Open']:
-                    htmlClickParser = MyHTMLClickParser(persist.id(0))
-                    htmlClickParser.feed(body)
-                    logline += ',Click'
-                    if random.random() <= probs['ClickAgain_Given_Click']:
+                    if random.random() <= probs['OpenAgain_Given_Open']:
+                        htmlOpenParser.feed(body)
+                        logline += ',OpenAgain'
+                    if random.random() <= probs['Click_Given_Open']:
+                        htmlClickParser = MyHTMLClickParser(persist.id(0))
                         htmlClickParser.feed(body)
-                        logline += ',ClickAgain'
-        # Feedback Loop email response
-        if random.random() <= probs['FBL']:
-            resFbl = fblGen(mail)
-            logline += ',' + resFbl
+                        logline += ',Click'
+                        if random.random() <= probs['ClickAgain_Given_Click']:
+                            htmlClickParser.feed(body)
+                            logline += ',ClickAgain'
+            # Feedback Loop email response
+            if random.random() <= probs['FBL']:
+                resFbl = fblGen(mail)
+                logline += ',' + resFbl
+    else:
+        logline += ',!DKIM fail' + xstr(auth)
     logger.info(logline)
 
 # Set conditional probability in mutable dict P for event a given event b. https://en.wikipedia.org/wiki/Conditional_probability
@@ -362,11 +371,8 @@ def consumeFiles(fnameList, cfg):
             for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
-                        # done = fname[:-4] + '.old'
                         try:
-                            # os.rename(fname, done)                # atomic operation
-                            os.remove(fname)
-                            # OK to remove while open, contents destroyed once file handle closed
+                            os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                             msg = email.message_from_file(fIn, policy=policy.default)
                             processMail(msg, fname, probs, logger)
                         except Exception as e:
