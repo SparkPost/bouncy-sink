@@ -1,6 +1,5 @@
 #
-# $Id: config 16786 2017-04-07 20:19:49Z juan $
-# Sample PowerMTA configuration file
+# PowerMTA configuration file for Bouncy Sink
 #
 
 #
@@ -58,34 +57,8 @@ dummy-smtp-ip 172.31.4.82	# set this to your host's primary IP
     add-date-header true
     always-allow-relaying no # stop spam traffic !!!
     check-dkim-inbound yes   # Check DKIM record
+    check-mfrom-inbound yes  # Check won't pass on ELB traffic, but will on directly mapped traffic
 </source>
-
-#
-# SMTP users (authenticated via SMTP AUTH)
-#
-#<smtp-user API>
-#    password "changeme"
-#</smtp-user>
-
-#
-# Settings per outgoing domain
-#
-#<domain discard.port25.com>
-#    max-smtp-out    800
-#    route           [192.168.0.1]:2525  # bypasses DNS resolution
-#</domain>
-#
-#<domain test.port25.com>
-#    max-smtp-out    1
-#    log-connections yes
-#    log-commands    yes     # WARNING: verbose!
-#    log-resolution  no      # WARNING: verbose!
-#    log-data        no      # WARNING: even more verbose!
-#</domain>
-
-#<domain {sparkpost}>
-#    auth-username Your_API_key_goes_here    # generate under Account/API Keys
-#</domain>
 
 #
 # Files placed in this directory - PMTA will attempt to deliver them. Use for FBLs, OOBs etc

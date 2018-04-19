@@ -266,43 +266,42 @@ class MyHTMLClickParser(HTMLParser):
 def xstr(s):
     return '' if s is None else str(s)
 
+# Process a single mail file according to the probabilistic model. If special subdomains are present, these override the model, providing SPF check has passed.
+# Actions taken are logged.
 def processMail(mail, fname, probs, logger):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     # Test that message was checked by PMTA and has valid DKIM signature
     auth = mail['Authentication-Results']
     if auth != None and 'dkim=pass' in auth:
-        dkim_d = re.search('d=(.+?);\s', mail['DKIM-Signature']).group(1)
-        rpDomainPart = returnPathAddrIn(mail).split('@')[1]
-        if dkim_d != rpDomainPart:
-            logline += ',!Return-Path: {} & d={} not aligned'.format(rpDomainPart, dkim_d)
-        # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-        if random.random() <= probs['OOB']:
+        # Valid DKIM sig. Check for special "To" subdomains that signal what action to take (for safety, these require inbound spf to have passed)
+        subd = mail['to'].split('@')[1].split('.')[0]
+        spfPass = 'spf=pass' in auth
+        if (subd == 'oob' and spfPass) or (random.random() <= probs['OOB']):
+            # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
             resOob = oobGen(mail)
             logline += ',' + resOob
-        else:
-            # open / open again / click / click again logic, as per conditional probabilities
-            if random.random() <= probs['Open']:
-                bd = mail.get_body('text/html')
-                if bd:                                                  # if no body to parse, ignore
-                    body = bd.as_string()
-                    htmlOpenParser = MyHTMLOpenParser(persist.id(0))    # use persistent session ID
-                    logline += ',Open'
+        elif (subd == 'fbl' and spfPass) or (random.random() <= probs['FBL']):
+            resFbl = fblGen(mail)
+            logline += ',' + resFbl
+        # open / open again / click / click again logic, as per conditional probabilities
+        elif (subd == 'openclick') or (random.random() <= probs['Open']):
+            bd = mail.get_body('text/html')
+            if bd:                                                  # if no body to parse, ignore
+                body = bd.as_string()
+                htmlOpenParser = MyHTMLOpenParser(persist.id(0))    # use persistent session ID
+                logline += ',Open'
+                htmlOpenParser.feed(body)
+                if random.random() <= probs['OpenAgain_Given_Open']:
                     htmlOpenParser.feed(body)
-                    if random.random() <= probs['OpenAgain_Given_Open']:
-                        htmlOpenParser.feed(body)
-                        logline += ',OpenAgain'
-                    if random.random() <= probs['Click_Given_Open']:
-                        htmlClickParser = MyHTMLClickParser(persist.id(0))
+                    logline += ',OpenAgain'
+                if random.random() <= probs['Click_Given_Open']:
+                    htmlClickParser = MyHTMLClickParser(persist.id(0))
+                    htmlClickParser.feed(body)
+                    logline += ',Click'
+                    if random.random() <= probs['ClickAgain_Given_Click']:
                         htmlClickParser.feed(body)
-                        logline += ',Click'
-                        if random.random() <= probs['ClickAgain_Given_Click']:
-                            htmlClickParser.feed(body)
-                            logline += ',ClickAgain'
-            # Feedback Loop email response
-            if random.random() <= probs['FBL']:
-                resFbl = fblGen(mail)
-                logline += ',' + resFbl
+                        logline += ',ClickAgain'
     else:
         logline += ',!DKIM fail:' + xstr(auth)
     logger.info(logline)
