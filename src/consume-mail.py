@@ -266,6 +266,28 @@ class MyHTMLClickParser(HTMLParser):
 def xstr(s):
     return '' if s is None else str(s)
 
+
+# open / open again / click / click again logic, as per conditional probabilities
+def openClickMail(mail, probs, logger):
+    ll = ''
+    bd = mail.get_body('text/html')
+    if bd:  # if no body to parse, ignore
+        body = bd.as_string()
+        htmlOpenParser = MyHTMLOpenParser(persist.id(0))  # use persistent session ID
+        ll += 'Open'
+        htmlOpenParser.feed(body)
+        if random.random() <= probs['OpenAgain_Given_Open']:
+            htmlOpenParser.feed(body)
+            ll += ',OpenAgain'
+        if random.random() <= probs['Click_Given_Open']:
+            htmlClickParser = MyHTMLClickParser(persist.id(0))
+            htmlClickParser.feed(body)
+            ll += ',Click'
+            if random.random() <= probs['ClickAgain_Given_Click']:
+                htmlClickParser.feed(body)
+                ll += ',ClickAgain'
+    return ll
+
 # Process a single mail file according to the probabilistic model. If special subdomains are present, these override the model, providing SPF check has passed.
 # Actions taken are logged.
 def processMail(mail, fname, probs, logger):
@@ -274,34 +296,30 @@ def processMail(mail, fname, probs, logger):
     # Test that message was checked by PMTA and has valid DKIM signature
     auth = mail['Authentication-Results']
     if auth != None and 'dkim=pass' in auth:
-        # Valid DKIM sig. Check for special "To" subdomains that signal what action to take (for safety, these require inbound spf to have passed)
+        # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
         subd = mail['to'].split('@')[1].split('.')[0]
-        spfPass = 'spf=pass' in auth
-        if (subd == 'oob' and spfPass) or (random.random() <= probs['OOB']):
-            # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-            resOob = oobGen(mail)
-            logline += ',' + resOob
-        elif (subd == 'fbl' and spfPass) or (random.random() <= probs['FBL']):
-            resFbl = fblGen(mail)
-            logline += ',' + resFbl
-        # open / open again / click / click again logic, as per conditional probabilities
-        elif (subd == 'openclick') or (random.random() <= probs['Open']):
-            bd = mail.get_body('text/html')
-            if bd:                                                  # if no body to parse, ignore
-                body = bd.as_string()
-                htmlOpenParser = MyHTMLOpenParser(persist.id(0))    # use persistent session ID
-                logline += ',Open'
-                htmlOpenParser.feed(body)
-                if random.random() <= probs['OpenAgain_Given_Open']:
-                    htmlOpenParser.feed(body)
-                    logline += ',OpenAgain'
-                if random.random() <= probs['Click_Given_Open']:
-                    htmlClickParser = MyHTMLClickParser(persist.id(0))
-                    htmlClickParser.feed(body)
-                    logline += ',Click'
-                    if random.random() <= probs['ClickAgain_Given_Click']:
-                        htmlClickParser.feed(body)
-                        logline += ',ClickAgain'
+        if subd == 'oob':
+            if 'spf=pass' in auth:
+                logline += ',' + oobGen(mail)
+            else:
+                logline += ',!Special ' + subd + ' failed SPF check'
+        elif subd == 'fbl':
+            if 'spf=pass' in auth:
+                logline += ',' + fblGen(mail)
+            else:
+                logline += ',!Special ' + subd + ' failed SPF check'
+        elif subd == 'openclick':
+            logline += ',' + openClickMail(mail, probs, logger)             # doesn't need SPF pass
+        else:
+            # Apply probabilistic model to all other domains
+            if random.random() <= probs['OOB']:
+                # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
+                logline += ',' + oobGen(mail)
+            else:
+                if random.random() <= probs['FBL']:
+                    logline += ',' + fblGen(mail)
+                if random.random() <= probs['Open']:
+                    logline += ',' + openClickMail(mail, probs, logger)
     else:
         logline += ',!DKIM fail:' + xstr(auth)
     logger.info(logline)
