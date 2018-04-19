@@ -304,7 +304,7 @@ def processMail(mail, fname, probs, logger):
                 resFbl = fblGen(mail)
                 logline += ',' + resFbl
     else:
-        logline += ',!DKIM fail' + xstr(auth)
+        logline += ',!DKIM fail:' + xstr(auth)
     logger.info(logline)
 
 # Set conditional probability in mutable dict P for event a given event b. https://en.wikipedia.org/wiki/Conditional_probability
@@ -368,17 +368,23 @@ def consumeFiles(fnameList, cfg):
             processMail(msg, 'stdin', probs, logger)
         else:
             logger.info('** Consuming {} mail file(s)'.format(len(fnameList)))
+            countDone = 0
+            countSkipped = 0
             for fname in fnameList:
-                if os.path.isfile(fname):
-                    with open(fname) as fIn:
-                        try:
+                try:
+                    if os.path.isfile(fname):
+                        with open(fname) as fIn:
                             os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                             msg = email.message_from_file(fIn, policy=policy.default)
                             processMail(msg, fname, probs, logger)
-                        except Exception as e:
-                            logger.error(str(e))
+                            countDone += 1
+                except Exception as e:                              # catch any exceptions, keep going
+                    logger.error(str(e))
+                    countSkipped += 1
         endTime = time.time()
-        logger.info('** Finishing:run time(s)={0:.3f}'.format(endTime-startTime))
+        runTime = endTime-startTime
+        runRate = (0 if runTime==0 else countDone/runTime)          # Ensure no divide by zero
+        logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone, countSkipped, runRate) )
 
 # -----------------------------------------------------------------------------------------
 # Main code
