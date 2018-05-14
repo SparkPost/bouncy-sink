@@ -64,3 +64,7 @@ OOB bounces work sa follows
 The OOBs show up as `out_of_band` events in SparkPost.
 
 ## Delayed messages (4xx aka tempfails)
+
+## .ini file
+
+## Logfile
