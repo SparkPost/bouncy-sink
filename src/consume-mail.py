@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, re
+import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
@@ -171,6 +171,7 @@ def mapRP_MXtoSparkPostFbl(returnPath):
 
 def returnPathAddrIn(mail):
     return mail['Return-Path'].lstrip('<').rstrip('>')              # Remove < > brackets from address
+
 #
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
@@ -215,7 +216,6 @@ def oobGen(mail):
             with smtplib.SMTP(mx) as smtpObj:
                 smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
                 return 'OOB sent to ' + oobTo + ' via ' + mx
-
         except smtplib.SMTPException as err:
             return '!OOB endpoint returned SMTP error: ' + str(err)
 
@@ -341,7 +341,6 @@ def checkSetCondProb(P, a, b, logger):
 def getBounceProbabilities(cfg, logger):
     try:
         thisAppTraffic  = 1 - cfg.getfloat('Upstream_Handled') / 100
-
         P = {
             'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
             'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
@@ -366,13 +365,16 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
+#
+# Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
     startTime = time.time()                                         # measure run time
     # Log some info on mail that is processed
-    logfilename = cfg.get('Logfile', 'bouncy-sink.log')
+    logfile = cfg.get('Logfile', 'bouncy-sink.log')
+    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
     logger = logging.getLogger('consume-mail')
     logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(logfilename)
+    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
     formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -412,10 +414,10 @@ def consumeFiles(fnameList, cfg):
 # (blank)   stdin       (e.g. for pipe input)
 
 config = configparser.ConfigParser()
-config.read_file(open(configFileName() ))
+config.read_file(open(configFileName()))
 cfg = config['Bouncy_Sink']
 Nthreads = cfg.getint('Threads', 1)
-persist = persistentSession(Nthreads)  # hold a set of persistent 'requests' sessions
+persist = persistentSession(Nthreads)                               # hold a set of persistent 'requests' sessions
 
 if len(sys.argv) >= 3:
     if sys.argv[1] == '-f':
