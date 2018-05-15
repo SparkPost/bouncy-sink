@@ -33,7 +33,7 @@ Note that all sent messages count towards your account usage.
 ### Statistical model
 This is the default setup:
 
-<img src="bouncy-sink-statistical-model.svg" width="200px"/>
+<img src="bouncy-sink-statistical-model.svg"/>
 
 This can be customised using the .ini file if you are deploying your own bouncy sink instance.
 
