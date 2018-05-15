@@ -9,21 +9,20 @@ Different response behaviours are available, through choice of recipient subdoma
 
 |Response Behaviour|Use Recipient Address|
 |-------------|--------------------------|
-|Accept quietly, without opens or clicks|_`any`_`@accept.bouncy-sink.trymsys.net`|
-|Out-of-band bounce|_`any`_`@oob.bouncy-sink.trymsys.net`|
-|Spam Complaint (ARF format FBL) |_`any`_`@fbl.bouncy-sink.trymsys.net`|
-|Accepted and opened at least once. Will also sometimes click links and open again|_`any`_`@openclick.bouncy-sink.trymsys.net`|
-|Statistical mix of responses|_`any`_`@bouncy-sink.trymsys.net`|
+|Accept quietly, without opens or clicks|`any@accept.bouncy-sink.trymsys.net`|
+|Out-of-band bounce|`any@oob.bouncy-sink.trymsys.net`|
+|Spam Complaint (ARF format FBL) |`any@fbl.bouncy-sink.trymsys.net`|
+|Accepted and opened at least once|`any@openclick.bouncy-sink.trymsys.net`|
+|Statistical mix of responses|`any@bouncy-sink.trymsys.net`|
 
 The subdomain part immediately after the `@` is checked, so `@fbl.bouncy-sink.trymsys.net` and `@fbl.fred.wilma.bouncy-sink.trymsys.net`
-both trigger the FBL behaviour.
+trigger the same behaviour.
 
 Other subdomains, for example `foo.bar.bouncy-sink.trymsys.net` will give the statistical
 mix of responses.
 
 Open and click tracking requires a valid html part in your mail content, and the relevant tracking options
-to be enabled in your SparkPost account & transmission.
-If present, all links are processed.
+to be enabled in your SparkPost account & transmission. "Click" tries to follow all links present in the html part.
 
 ### Traffic generator
 
@@ -34,18 +33,11 @@ Note that all sent messages count towards your account usage.
 ### Statistical model
 This is the default setup:
 
-![Bouncy Sink Statistical Model 2.svg]
+<img src="bouncy-sink-statistical-model.svg" width="200px"/>
 
 This can be customised using the .ini file if you are deploying your own bouncy sink instance.
 
 
-- Open
-   - Click (on all links present in mail html part)
-       - A repeat click
-   - A repeat open
-- FBL report
-OR
-- OOB report (mails getting this response will not also be opened / clicked / FBLd)
 ## Bounces (in-band) and quiet mail acceptance
 
 A realistic sink accepts most mail (i.e. a 250OK response) and bounces a small portion. PMTA has an in-built facility to do this.
