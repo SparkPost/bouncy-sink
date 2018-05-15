@@ -207,15 +207,15 @@ def oobGen(mail):
     if not mx:
         return '!OOB not sent, Return-Path not recognized as SparkPost'
     else:
-        # from/to are opposite here, since we're simulating a reply
+        # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
         oobTo = returnPath
-        oobFrom = str(mail['From'])
-        oobMsg = buildOob(oobTo, oobFrom, mail)
+        oobFrom = str(mail['To'])
+        oobMsg = buildOob(oobFrom, oobTo, mail)
         try:
             # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
             with smtplib.SMTP(mx) as smtpObj:
                 smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
-                return 'OOB sent to ' + oobTo + ' via ' + mx
+                return 'OOB sent from {} to {} via {}'.format(oobFrom, oobTo, mx)
         except smtplib.SMTPException as err:
             return '!OOB endpoint returned SMTP error: ' + str(err)
 

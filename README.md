@@ -31,47 +31,80 @@ which can easily be deployed to Heroku, to generate random traffic through your 
 Note that all sent messages count towards your account usage.
 
 ### Statistical model
+
 This is the default setup:
 
 <img src="bouncy-sink-statistical-model.svg"/>
 
-This can be customised using the .ini file if you are deploying your own bouncy sink instance.
+This can be customised using the .ini file if you are deploying your own bouncy sink instance - see [here](CONFIGURING.md).
 
+Clicks are done only if the mail was also opened, so the event sequence can be:
 
-## Bounces (in-band) and quiet mail acceptance
+```
+[ Open [Open] [Click [Click] ] ]
+```
 
-A realistic sink accepts most mail (i.e. a 250OK response) and bounces a small portion. PMTA has an in-built facility to do this.
+## In-band bounces
 
-## Opens and Clicks
+This sink uses PMTA's built-in facility to generate in-band bounces with both 4xx (tempfail) and 5xx (permfail) codes on a portion of traffic.
+The codes are varied at random, and are typical of what a real ISP might send back.
+The 4xx codes will show up on SparkPost reporting as "delayed" mails, and they will be retried.
+
+## Actions on the mail content
+
+For these actions, messages must have a valid DKIM signature.
+
+### Opens and Clicks
+
 If an HTML mail part is present, the sink opens ("renders") the mail by fetching any `<img .. src="..">` tags present in the received mail.
 
 The sink clicks links by fetching any  `<a .. href="..">` tags present in the received mail.
 
-## FBLs: MX and To address
+### FBLs (aka Spam Complaints)
 
-The sink responds to a port of mails with an FBL back to SparkPost in ARF format.  The reply is constructed as follows:
+The sink responds to a some mails with an FBL back to SparkPost in ARF format.  The reply is constructed as follows:
 
-- the _from_ address is the received mail _To:_ header value.
-- the header '_to_' address and SMTP `RCPT TO` is as per the following table
-- the sink checks the MX points to SparkPost (to avoid risk of backscatter spam)
-- the ARF-format FBL mail is delivered directly over SMTP to the relevant MX (choosing the first MX if there is more than one).
-PMTA pickup/queuing is not used, so that the FBL mail acceptance state is known and logged.
+- Checks noted below must pass
+- The FBL `From:` header address and `MAIL FROM` is the received mail `To:` header value, which must be present
+- The FBL `To:` header address and `RCPT TO` is derived by looking up the received mail `Return-Path:` MX, according to the below table
+- The `X-MSFBL` header is populated from the received mail
+- The ARF-format FBL mail is attempted directly over SMTP to the relevant MX (simply choosing the first MX, if there is more than one)
+- SMTP error responses are logged
 
 |Service |MX |fblTo |
 |--------|---|------|
-|SparkPost|smtp.sparkpostmail.com|`fbl@sparkpostmail.com`|
-|SparkPost Enterprise|*tenant*.mail.e.sparkpost.com|`fbl@`_`tenant`_`.mail.e.sparkpost.com`
-|SparkPost EU|smtp.eu.sparkpostmail.com|`fbl@eu.sparkpostmail.com`|
+|SparkPost|smtp.sparkpostmail.com|`fbl@sparkpostmail.com`
+|SparkPost Enterprise|*tenant*.mail.e.sparkpost.com|`fbl@tenant.mail.e.sparkpost.com`
+|SparkPost EU|smtp.eu.sparkpostmail.com|`fbl@eu.sparkpostmail.com`
 
 The FBLs show up as `spam_complaint` events in SparkPost.
 
-## Bounces (out-of-band)
+### Out-of-band bounces
 
-OOB bounces work as follows
+OOB bounce replies are constructed as follows:
 
--- add more detail
+- Checks noted below must pass
+- The OOB `From:` header address and `MAIL FROM` is taken from the received mail `To:` header value.
+- The OOB `To:` header address and `RCPT TO` is taken from the received mail `Return-Path:` header
+- The ARF-format FBL mail is attempted directly over SMTP to the relevant MX (choosing the first MX if there is more than one)
+- Endpoint error responses are logged
+
+|Service |MX |oobTo |
+|--------|---|------|
+|SparkPost|smtp.sparkpostmail.com|`Return-Path:`|
+|SparkPost Enterprise|*tenant*.mail.e.sparkpost.com|`Return-Path:`
+|SparkPost EU|smtp.eu.sparkpostmail.com|`fbl@eu.sparkpostmail.com`|
 
 The OOBs show up as `out_of_band` events in SparkPost.
 
-## Delayed messages (4xx aka tempfails)
+### Additional checks on OOB and FBL actions
 
+To reduce the effect of bad actors trying to use the sink to mount a [backscatter spam](https://en.wikipedia.org/wiki/Backscatter_(email)) attack, 
+the direct OOB and FBL actions also require SPF to pass (so we know the originating IP is valid for the domain).
+
+All OOB and FBL actions require the `Return-Path:` MX to resolve back to a known SparkPost endpoint.
+
+### Effect on SparkPost suppression list
+
+Bounces will populate your suppression list. It's good practice to purge those entries relating to the sink when you've finished.
+[Here is a tool](https://www.sparkpost.com/blog/suppression-list-python/) that you can use to clean up afterward.
