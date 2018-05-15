@@ -310,6 +310,8 @@ def processMail(mail, fname, probs, logger):
                 logline += ',!Special ' + subd + ' failed SPF check'
         elif subd == 'openclick':
             logline += ',' + openClickMail(mail, probs, logger)             # doesn't need SPF pass
+        elif subd == 'accept':
+            pass
         else:
             # Apply probabilistic model to all other domains
             if random.random() <= probs['OOB']:
@@ -342,7 +344,6 @@ def getBounceProbabilities(cfg, logger):
     try:
         thisAppTraffic  = 1 - cfg.getfloat('Upstream_Handled') / 100
         P = {
-            'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
             'OOB'       : cfg.getfloat('OOB_percent') / 100 / thisAppTraffic,
             'FBL'       : cfg.getfloat('FBL_percent') / 100 / thisAppTraffic,
             'Open'      : cfg.getfloat('Open_percent') / 100 / thisAppTraffic,

@@ -1,15 +1,7 @@
+# Bouncy Sink for SparkPost traffic
 
-# Initial setup
-## AWS configuration
-- EC2 Linux
-- Two IP addresses
-
-## PMTA configuration
-- separate blackhole and clicky-sink operation
-- delivers mails to directory
-- tool runs in batch mode
-
-# Operation
+Send email through SparkPost to the following domains.  Please note this counts as usage on your
+account.
 
 ## Recipient Domains
 
@@ -17,17 +9,43 @@ Different response behaviours are available, through choice of recipient subdoma
 
 |Response Behaviour|Use Recipient Address|
 |-------------|--------------------------|
-|Statistical mix of responses|_`any`_`@bouncy-sink.trymsys.net`|
-|Accepted quietly, no opens or clicks|_`any`_`@accept.bouncy-sink.trymsys.net`|
-|In-band bounce|_`any`_`@bounce.bouncy-sink.trymsys.net`|
+|Accept quietly, without opens or clicks|_`any`_`@accept.bouncy-sink.trymsys.net`|
 |Out-of-band bounce|_`any`_`@oob.bouncy-sink.trymsys.net`|
 |Spam Complaint (ARF format FBL) |_`any`_`@fbl.bouncy-sink.trymsys.net`|
-|Accepted, opened and clicked |_`any`_`@openclick.bouncy-sink.trymsys.net`|
+|Accepted and opened at least once. Will also sometimes click links and open again|_`any`_`@openclick.bouncy-sink.trymsys.net`|
+|Statistical mix of responses|_`any`_`@bouncy-sink.trymsys.net`|
 
-Other subdomain values for example `foo.bar.bouncy-sink.trymsys.net` will give mixed responses.
+The subdomain part immediately after the `@` is checked, so `@fbl.bouncy-sink.trymsys.net` and `@fbl.fred.wilma.bouncy-sink.trymsys.net`
+both trigger the FBL behaviour.
+
+Other subdomains, for example `foo.bar.bouncy-sink.trymsys.net` will give the statistical
+mix of responses.
+
+Open and click tracking requires a valid html part in your mail content, and the relevant tracking options
+to be enabled in your SparkPost account & transmission.
+If present, all links are processed.
+
+### Traffic generator
+
+Any method can be used to generate traffic. Here is [a traffic generator](https://github.com/tuck1s/sparkpost-traffic-gen)
+which can easily be deployed to Heroku, to generate random traffic through your SparkPost account towards the "bouncy sink".
+Note that all sent messages count towards your account usage.
 
 ### Statistical model
+This is the default setup:
 
+![Bouncy Sink Statistical Model 2.svg]
+
+This can be customised using the .ini file if you are deploying your own bouncy sink instance.
+
+
+- Open
+   - Click (on all links present in mail html part)
+       - A repeat click
+   - A repeat open
+- FBL report
+OR
+- OOB report (mails getting this response will not also be opened / clicked / FBLd)
 ## Bounces (in-band) and quiet mail acceptance
 
 A realistic sink accepts most mail (i.e. a 250OK response) and bounces a small portion. PMTA has an in-built facility to do this.
@@ -57,7 +75,7 @@ The FBLs show up as `spam_complaint` events in SparkPost.
 
 ## Bounces (out-of-band)
 
-OOB bounces work sa follows
+OOB bounces work as follows
 
 -- add more detail
 
@@ -65,6 +83,3 @@ The OOBs show up as `out_of_band` events in SparkPost.
 
 ## Delayed messages (4xx aka tempfails)
 
-## .ini file
-
-## Logfile
