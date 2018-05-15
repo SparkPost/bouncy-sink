@@ -1,7 +1,21 @@
 # Bouncy Sink for SparkPost traffic
 
-Send email through SparkPost to the following domains.  Please note this counts as usage on your
-account.
+The Bouncy Sink is a place where you can send your test email to. It simulates some aspects of real-world
+email user and ISP behaviour, such as in-band and out-of-band [bounces](https://www.sparkpost.com/blog/wild-west-bounce-codes-deliverability/),
+[FBLs](https://www.sparkpost.com/blog/why-feedback-loops-matter/), [opens and clicks](https://www.sparkpost.com/blog/email-user-engagement-metrics/).
+
+Please note that traffic to the sink **still counts as usage on your account.**
+
+**Why use this?** Sending test traffic to real ISP domains (such as gmail.com, hotmail and so on) that isn't actually
+for humans to open, such as to "made up" addresses that bounce, can quickly damage your [email reputation](https://www.sparkpost.com/blog/email-reputation-matters/). 
+
+## Generating traffic toward the sink
+
+To use the sink, simply send SparkPost traffic to it.
+Any valid method can be used to generate traffic from SparkPost toward the sink.
+
+Here is [a traffic generator](https://github.com/tuck1s/sparkpost-traffic-gen)
+which can easily be deployed to Heroku, to generate random traffic through your SparkPost account toward the "bouncy sink" domains.
 
 ## Recipient Domains
 
@@ -23,12 +37,6 @@ mix of responses.
 
 Open and click tracking requires a valid html part in your mail content, and the relevant tracking options
 to be enabled in your SparkPost account & transmission. "Click" tries to follow all links present in the html part.
-
-### Traffic generator
-
-Any method can be used to generate traffic. Here is [a traffic generator](https://github.com/tuck1s/sparkpost-traffic-gen)
-which can easily be deployed to Heroku, to generate random traffic through your SparkPost account towards the "bouncy sink".
-Note that all sent messages count towards your account usage.
 
 ### Statistical model
 
@@ -64,7 +72,7 @@ The sink clicks links by fetching any  `<a .. href="..">` tags present in the re
 
 The sink responds to a some mails with an FBL back to SparkPost in ARF format.  The reply is constructed as follows:
 
-- Checks noted below must pass
+- Additional checks below must pass
 - The FBL `From:` header address and `MAIL FROM` is the received mail `To:` header value, which must be present
 - The FBL `To:` header address and `RCPT TO` is derived by looking up the received mail `Return-Path:` MX, according to the below table
 - The `X-MSFBL` header is populated from the received mail
@@ -83,17 +91,11 @@ The FBLs show up as `spam_complaint` events in SparkPost.
 
 OOB bounce replies are constructed as follows:
 
-- Checks noted below must pass
-- The OOB `From:` header address and `MAIL FROM` is taken from the received mail `To:` header value.
+- Additional checks below must pass
+- The OOB `From:` header address and `MAIL FROM` is taken from the received mail `To:` header value
 - The OOB `To:` header address and `RCPT TO` is taken from the received mail `Return-Path:` header
-- The ARF-format FBL mail is attempted directly over SMTP to the relevant MX (choosing the first MX if there is more than one)
+- The OOB mail is attempted directly over SMTP to the relevant MX (choosing the first MX if there is more than one)
 - Endpoint error responses are logged
-
-|Service |MX |oobTo |
-|--------|---|------|
-|SparkPost|smtp.sparkpostmail.com|`Return-Path:`|
-|SparkPost Enterprise|*tenant*.mail.e.sparkpost.com|`Return-Path:`
-|SparkPost EU|smtp.eu.sparkpostmail.com|`fbl@eu.sparkpostmail.com`|
 
 The OOBs show up as `out_of_band` events in SparkPost.
 
@@ -104,7 +106,17 @@ the direct OOB and FBL actions also require SPF to pass (so we know the originat
 
 All OOB and FBL actions require the `Return-Path:` MX to resolve back to a known SparkPost endpoint.
 
-### Effect on SparkPost suppression list
+### Internal application logfile
 
-Bounces will populate your suppression list. It's good practice to purge those entries relating to the sink when you've finished.
-[Here is a tool](https://www.sparkpost.com/blog/suppression-list-python/) that you can use to clean up afterward.
+All actions are logged, with configurable logfile retention and midnight rotation.
+
+### SparkPost suppression list cleaning
+
+Bounces will populate your suppression list. It's good practice to purge those entries relating to the sink domains when you've finished.
+[Here is a tool](https://www.sparkpost.com/blog/suppression-list-python/) that you can use to clean up.
+
+## See Also
+
+[Internal configuration details](CONFIGURING.md)
+
+[Simple "accept" sink built in to SparkPost](https://www.sparkpost.com/docs/faq/using-sink-server/)

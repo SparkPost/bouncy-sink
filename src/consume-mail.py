@@ -203,21 +203,26 @@ def fblGen(mail):
 #
 def oobGen(mail):
     returnPath = returnPathAddrIn(mail)
-    mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
-    if not mx:
-        return '!OOB not sent, Return-Path not recognized as SparkPost'
+    if not returnPath:
+        return '!Missing Return-Path:'
+    elif not mail['to']:
+        return '!Missing To:'
     else:
-        # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
-        oobTo = returnPath
-        oobFrom = str(mail['To'])
-        oobMsg = buildOob(oobFrom, oobTo, mail)
-        try:
-            # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
-            with smtplib.SMTP(mx) as smtpObj:
-                smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
-                return 'OOB sent from {} to {} via {}'.format(oobFrom, oobTo, mx)
-        except smtplib.SMTPException as err:
-            return '!OOB endpoint returned SMTP error: ' + str(err)
+        mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
+        if not mx:
+            return '!OOB not sent, Return-Path not recognized as SparkPost'
+        else:
+            # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
+            oobTo = returnPath
+            oobFrom = str(mail['To'])
+            oobMsg = buildOob(oobFrom, oobTo, mail)
+            try:
+                # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
+                with smtplib.SMTP(mx) as smtpObj:
+                    smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
+                    return 'OOB sent from {} to {} via {}'.format(oobFrom, oobTo, mx)
+            except smtplib.SMTPException as err:
+                return '!OOB endpoint returned SMTP error: ' + str(err)
 
 
 # -----------------------------------------------------------------------------------------
