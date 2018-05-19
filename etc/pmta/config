@@ -32,7 +32,8 @@ dummy-smtp-log-blacklist yes
 dummy-smtp-blacklist-bounce-method random
 dummy-smtp-blacklist-bounce-percent 4			# blackhole receives 50% of ELB traffic, giving 2% in-band bounce rate
 dummy-smtp-port 25
-dummy-smtp-ip 172.31.4.82	# set this to your host's secondary (eth1) private IP
+# set this to your host's secondary (eth1) private IP. This does not require its own EIP as it's fed from the ELB
+dummy-smtp-ip 172.31.3.252
 #
 # Settings per source IP address (for incoming SMTP connections)
 #
