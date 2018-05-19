@@ -10,13 +10,15 @@ postmaster steve.tuck@sparkpost.com
 # IP address(es) and port(s) on which to listen for incoming SMTP connections
 # This will map through the open/click/FBL/OOB action
 #
-smtp-listener 172.31.3.252:25	# set this to your host's secondary IP
+# set this to your host's primary (eth0) private IP which should be mapped from a public Elastic IP
+# eth0 is used for opens/clicks and FBL/OOB replies, so must have an outbound route
+smtp-listener 172.31.4.82:25
 
 # Set this to allow incoming STARTTLS
-# 
+#
 smtp-server-tls-certificate  /var/lib/pmta/smtp-server-certificate.pem
 
-# Blackhole settings. 
+# Blackhole settings.
 # Rejects (4xx/5xx) or silently accepts and blachholes traffic on this IP
 #
 total-max-smtp-in 400
@@ -30,7 +32,7 @@ dummy-smtp-log-blacklist yes
 dummy-smtp-blacklist-bounce-method random
 dummy-smtp-blacklist-bounce-percent 4			# blackhole receives 50% of ELB traffic, giving 2% in-band bounce rate
 dummy-smtp-port 25
-dummy-smtp-ip 172.31.4.82	# set this to your host's primary IP
+dummy-smtp-ip 172.31.4.82	# set this to your host's secondary (eth1) private IP
 #
 # Settings per source IP address (for incoming SMTP connections)
 #

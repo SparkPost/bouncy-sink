@@ -322,11 +322,10 @@ def processMail(mail, fname, probs, logger):
             if random.random() <= probs['OOB']:
                 # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
                 logline += ',' + oobGen(mail)
-            else:
-                if random.random() <= probs['FBL']:
-                    logline += ',' + fblGen(mail)
-                if random.random() <= probs['Open']:
-                    logline += ',' + openClickMail(mail, probs, logger)
+            elif random.random() <= probs['FBL']:
+                logline += ',' + fblGen(mail)
+            elif random.random() <= probs['Open']:
+                logline += ',' + openClickMail(mail, probs, logger)
     else:
         logline += ',!DKIM fail:' + xstr(auth)
     logger.info(logline)
