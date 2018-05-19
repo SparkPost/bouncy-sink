@@ -65,9 +65,17 @@ for 50% / 50% between the listeners. This enables a single mail stream to experi
  
 Specific domains map to the regular PMTA listener, allowing direct access to those sink features.
 
-The current setup in AWS account `msys-custsuccess` looks like this:
+The setup in AWS account `msys-custsuccess` looks like this:
 
-TODO: Diagram
+<img src="bouncy-sink-network-connections.svg"/>
+
+The main domain (and wildcard subdomains) are routed via an Elastic IP to an ELB, which distributed traffic 50/50 between two
+private IPs, bound respectively to eth0 and and eth1 network interfaces.
+
+The usual PMTA listener serves eth0, and the special `dummy-smtp` listener serves eth1.
+
+The direct action subdomains `fbl`, `oob`, `openclick`, and `accept` map to Elastic IP 1, which also serves outbound connections
+for FBL, OOB delivery and http(s) opens and clicks.
 
 ## .ini file
 
