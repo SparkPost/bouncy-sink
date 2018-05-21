@@ -11,6 +11,8 @@ import logging, logging.handlers, sys, os, email, time, glob, requests, dns.reso
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
+from webReporter import getResult, setResults
+from datetime import datetime, timezone
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
@@ -32,9 +34,9 @@ def printHelp():
     print('Output')
     print('    logfile of actions taken created')
 
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # FBL and OOB handling
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 ArfFormat = '''From: <{fblFrom}>
 Date: Mon, 02 Jan 2006 15:04:05 MST
 Subject: FW: Earn money
@@ -144,10 +146,8 @@ def buildOob(oobFrom, oobTo, rawMsg):
     msg = OobFormat.format(oobFrom=oobFrom, oobTo=oobTo, boundary=boundary, toDomain=toDomain, fromDomain=fromDomain, rawMsg=rawMsg)
     return msg
 
-#
 # Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to SparkPost.
 # If valid, returns the MX and the associated To: addr for FBLs.
-#
 def mapRP_MXtoSparkPostFbl(returnPath):
     rpDomainPart = returnPath.split('@')[1]
     try:
@@ -172,7 +172,6 @@ def mapRP_MXtoSparkPostFbl(returnPath):
 def returnPathAddrIn(mail):
     return mail['Return-Path'].lstrip('<').rstrip('>')              # Remove < > brackets from address
 
-#
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
@@ -197,10 +196,9 @@ def fblGen(mail):
             except smtplib.SMTPException as err:
                 return '!FBL endpoint returned SMTP error: ' + str(err)
 
-#
+
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
-#
 def oobGen(mail):
     returnPath = returnPathAddrIn(mail)
     if not returnPath:
@@ -225,9 +223,9 @@ def oobGen(mail):
                 return '!OOB endpoint returned SMTP error: ' + str(err)
 
 
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Open and Click handling
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # Class holding persistent requests session IDs
 class persistentSession():
@@ -271,7 +269,6 @@ class MyHTMLClickParser(HTMLParser):
 def xstr(s):
     return '' if s is None else str(s)
 
-
 # open / open again / click / click again logic, as per conditional probabilities
 def openClickMail(mail, probs, logger):
     ll = ''
@@ -293,8 +290,12 @@ def openClickMail(mail, probs, logger):
                 ll += ',ClickAgain'
     return ll
 
-# Process a single mail file according to the probabilistic model. If special subdomains are present, these override the model, providing SPF check has passed.
+# -----------------------------------------------------------------------------
+# Process a single mail file according to the probabilistic model & special subdomains
+# If special subdomains used, these override the model, providing SPF check has passed.
 # Actions taken are logged.
+# -----------------------------------------------------------------------------
+
 def processMail(mail, fname, probs, logger):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
@@ -329,6 +330,10 @@ def processMail(mail, fname, probs, logger):
     else:
         logline += ',!DKIM fail:' + xstr(auth)
     logger.info(logline)
+
+# -----------------------------------------------------------------------------
+# Set up probabilistic model for incoming mail
+# -----------------------------------------------------------------------------
 
 # Set conditional probability in mutable dict P for event a given event b. https://en.wikipedia.org/wiki/Conditional_probability
 def checkSetCondProb(P, a, b, logger):
@@ -370,14 +375,38 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-#
+# -----------------------------------------------------------------------------
+# Record results for webReporter
+# -----------------------------------------------------------------------------
+
+# Format used for time strings in results
+def timeStr(t):
+    utc = datetime.fromtimestamp(t, timezone.utc)
+    return datetime.isoformat(utc, sep='T', timespec='seconds')
+
+def checkAndRecordFirstRun(startTime):
+    res = getResult('startedRunning')                               # read back results from previous run (if any)
+    if not res:
+        res = {
+            'startedRunning': timeStr(startTime),  # this is the first run - initialise
+            'nOOB': 0,
+            'nFBL': 0,
+            'nOpen': 0,
+            'nClick': 0,
+            'nOpenAgain': 0,
+            'nClickAgain': 0,
+            'nOOBError': 0,
+            'nFBLError': 0,
+        }
+        ok = setResults(res)
+
 # Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
     startTime = time.time()                                         # measure run time
     # Log some info on mail that is processed
-    logfile = cfg.get('Logfile', 'bouncy-sink.log')
+    logfile = cfg.get('Logfile', baseProgName() + '.log')
     logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
-    logger = logging.getLogger('consume-mail')
+    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
     formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
@@ -386,6 +415,7 @@ def consumeFiles(fnameList, cfg):
 
     probs = getBounceProbabilities(cfg, logger)
     if probs:
+        checkAndRecordFirstRun(startTime)
         if fnameList is None:
             logger.info('** Consuming mail from stdin')
             msg = email.message_from_file(sys.stdin, policy=policy.default)
@@ -410,9 +440,9 @@ def consumeFiles(fnameList, cfg):
         runRate = (0 if runTime==0 else countDone/runTime)          # Ensure no divide by zero
         logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone, countSkipped, runRate) )
 
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Main code
-# -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Take mail input depending on command-line options:
 # -f        file        (single file)
 # -d        directory   (read process and delete any file with extension .msg)
@@ -420,7 +450,7 @@ def consumeFiles(fnameList, cfg):
 
 config = configparser.ConfigParser()
 config.read_file(open(configFileName()))
-cfg = config['Bouncy_Sink']
+cfg = config['DEFAULT']
 Nthreads = cfg.getint('Threads', 1)
 persist = persistentSession(Nthreads)                               # hold a set of persistent 'requests' sessions
 
@@ -434,7 +464,7 @@ if len(sys.argv) >= 3:
     else:
         printHelp()
 else:
-    if len(sys.argv) <= 1:                                           # empty args - read stdin
+    if len(sys.argv) <= 1:                                          # empty args - read stdin
         consumeFiles(None, cfg)
     else:
         printHelp()

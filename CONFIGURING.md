@@ -56,26 +56,22 @@ Set up crontab to run script. The easiest way to do this is `crontab -e` then pa
 ## Network environment
 
 The PMTA blackhole service configured in the `dummy-smtp-` settings requires its own host IP address (it can't be set in a virtual MTA).
+
 The other bouncy sink features live on the regular PMTA listener address, which simply relays to a directory.
 
-These distinct services can coexist on one PMTA install & one host, providing you map the NICs and IP addresses appropriately.
+These distinct services can coexist on one PMTA instance on one host, with two NICs and IP addresses.
 
-The main "statistical" inbound domain is mapped to an AWS ELB.  ELB sharing is coarse, so the .ini file is set to account
-for 50% / 50% between the listeners. This enables a single mail stream to experience the full range of sink responses.
- 
+To enable single mail stream to experience the full range of sink responses, the main inbound domain is mapped to an AWS ELB.
+ELB sharing percentage is non-configurable, so the .ini file is set to account for 50% / 50% between the listeners. 
 Specific domains map to the regular PMTA listener, allowing direct access to those sink features.
 
-The setup in AWS account `msys-custsuccess` looks like this:
-
-<img src="bouncy-sink-network-connections.svg"/>
-
-The main domain (and wildcard subdomains) are routed via an Elastic IP to an ELB, which distributed traffic 50/50 between two
-private IPs, bound respectively to eth0 and and eth1 network interfaces.
+<img src="doc-img/bouncy-sink-network-connections.svg"/>
 
 The usual PMTA listener serves eth0, and the special `dummy-smtp` listener serves eth1.
 
-The direct action subdomains `fbl`, `oob`, `openclick`, and `accept` map to Elastic IP 1, which also serves outbound connections
-for FBL, OOB delivery and http(s) opens and clicks.
+The direct action subdomains `fbl`, `oob`, `openclick`, and `accept` map to Elastic IP 1, which also handles all host outbound connections:
+- FBL & OOB delivery
+- http(s) opens & clicks.
 
 ## .ini file
 

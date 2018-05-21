@@ -42,7 +42,7 @@ to be enabled in your SparkPost account & transmission. "Click" tries to follow 
 
 This is the default setup:
 
-<img src="bouncy-sink-statistical-model.svg"/>
+<img src="doc-img/bouncy-sink-statistical-model.svg"/>
 
 This can be customised using the .ini file if you are deploying your own bouncy sink instance - see [here](CONFIGURING.md).
 
