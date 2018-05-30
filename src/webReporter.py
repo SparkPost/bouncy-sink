@@ -6,47 +6,46 @@ import os, redis, json
 from flask import Flask, make_response, render_template, request, send_file
 app = Flask(__name__)
 
-appName = 'consume-mail'
-# Access to Redis data
-def getResult(k):
-    redisUrl = os.getenv('REDIS_URL', default='localhost')          # Env var is set by Heroku; will be unset when local
-    r = redis.from_url(redisUrl, socket_timeout=5)                  # shorten timeout so doesn't hang forever
-    rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
-    res = r.get(rkeyPrefix + k)
-    if res:
+class Results():
+    def __init__(self):
+        # Set up a persistent connection to redis results
+        appName = 'consume-mail'
+        redisUrl = os.getenv('REDIS_URL', default='localhost')              # Env var is set by Heroku; will be unset when local
+        self.r = redis.from_url(redisUrl, socket_timeout=5)                 # shorten timeout so doesn't hang forever
+        self.rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
+
+    # Access to Redis data
+    def getResult(self, k):
+        res = self.r.get(self.rkeyPrefix + k)
         return res
-    else:
-        return None
 
-# returns True if data written back to Redis OK.  d is a dict of key-value pairs to write
-def setResults(d):
-    redisUrl = os.getenv('REDIS_URL', default='localhost')          # Env var is set by Heroku; will be unset when local
-    r = redis.from_url(redisUrl, socket_timeout=5)                  # shorten timeout so doesn't hang forever
-    rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
-    ok = True
-    for k, v in d.items():
-        ok = ok and r.set(rkeyPrefix + k, v)
-    return ok                                                       # true iff all the writes were ok
+    # returns True if data written back to Redis OK.  d is a dict of key-value pairs to write
+    def setResult(self, k, v):
+        ok = self.r.set(self.rkeyPrefix + k, v)
+        return ok
 
-def getMatchingResults():
-    redisUrl = os.getenv('REDIS_URL', default='localhost')          # Env var is set by Heroku; will be unset when local
-    r = redis.from_url(redisUrl, socket_timeout=5)                  # shorten timeout so doesn't hang forever
-    rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
-    res = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}       # default data
-    for k in r.scan_iter(match=rkeyPrefix+'*'):
-        v = r.get(k).decode('utf-8')
-        idx = k.decode('utf-8') [len(rkeyPrefix):]                  # strip the prefix
-        res[idx] =  v                                               # everything is a string at this point
-    return res
+    def getMatchingResults(self):
+        for k in self.r.scan_iter(match=self.rkeyPrefix+'*'):
+            v = self.r.get(k).decode('utf-8')
+            idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
+            if idx.startswith('int_'):
+                idx= idx[len('int_'):]                                  # strip the pseudo-type prefix
+                res[idx] =  int(v)                                      # use as int
+            else:
+                res[idx] =  v                                           # use as string
+        return res
 
-def incrementKey(k):
-    print('Stub: incrementing ', k)
-    return True
+    # Creates key if not already existing
+    def incrementKey(self, k):
+        self.r.incr(self.rkeyPrefix + 'int_' + k)                       # mark type in key name, as all redis objs are string
 
 # Flask entry points
 @app.route('/', methods=['GET'])
 def status_html():
-    r = getMatchingResults()
+    shareRes = Results()                                            # class for sharing summary results
+    r = shareRes.getMatchingResults()
+    if not r:
+        r = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}       # default data
     # pass in merged dict as named params to template substitutions
     res = render_template('index.html', **r, jsonUrl=request.url+'json')
     return res
@@ -54,7 +53,8 @@ def status_html():
 # This entry point returns JSON-format report on the traffic generator
 @app.route('/json', methods=['GET'])
 def status_json():
-    r = getMatchingResults()
+    shareRes = Results()                                            # class for sharing summary results
+    r = shareRes.getMatchingResults()
     flaskRes = make_response(json.dumps(r))
     flaskRes.headers['Content-Type'] = 'application/json'
     return flaskRes

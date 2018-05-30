@@ -11,7 +11,7 @@ import logging, logging.handlers, sys, os, email, time, glob, requests, dns.reso
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
-from webReporter import getResult, setResults
+from webReporter import Results
 from datetime import datetime, timezone
 
 def baseProgName():
@@ -33,6 +33,13 @@ def printHelp():
     print('')
     print('Output')
     print('    logfile of actions taken created')
+
+def xstr(s):
+    return '' if s is None else str(s)
+
+def timeStr(t):
+    utc = datetime.fromtimestamp(t, timezone.utc)
+    return datetime.isoformat(utc, sep='T', timespec='seconds')
 
 # -----------------------------------------------------------------------------
 # FBL and OOB handling
@@ -175,16 +182,19 @@ def returnPathAddrIn(mail):
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
-def fblGen(mail):
+def fblGen(mail, shareRes):
     returnPath = returnPathAddrIn(mail)
     if not returnPath:
+        shareRes.incrementKey('fbl_missing_return_path')
         return '!Missing Return-Path:'
     elif not mail['to']:
+        shareRes.incrementKey('fbl_missing_to')
         return '!Missing To:'
     else:
         fblFrom = mail['to']
         mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath)
         if not mx:
+            shareRes.incrementKey('fbl_return_path_not_sparkpost')
             return '!FBL not sent, Return-Path not recognized as SparkPost'
         else:
             arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath)
@@ -192,22 +202,27 @@ def fblGen(mail):
                 # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
                     smtpObj.sendmail(fblFrom, fblTo, arfMsg)        # if no exception, the mail is sent (250OK)
-                    return 'FBL sent to ' + fblTo + ' via ' + mx
+                    shareRes.incrementKey('fbl_sent')
+                    return 'FBL sent,to ' + fblTo + ' via ' + mx
             except smtplib.SMTPException as err:
+                shareRes.incrementKey('fbl_smtp_error')
                 return '!FBL endpoint returned SMTP error: ' + str(err)
 
 
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
-def oobGen(mail):
+def oobGen(mail, shareRes):
     returnPath = returnPathAddrIn(mail)
     if not returnPath:
+        shareRes.incrementKey('oob_missing_return_path')
         return '!Missing Return-Path:'
     elif not mail['to']:
+        shareRes.incrementKey('oob_missing_to')
         return '!Missing To:'
     else:
         mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
         if not mx:
+            shareRes.incrementKey('oob_return_path_not_sparkpost')
             return '!OOB not sent, Return-Path not recognized as SparkPost'
         else:
             # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
@@ -218,8 +233,10 @@ def oobGen(mail):
                 # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
                     smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
-                    return 'OOB sent from {} to {} via {}'.format(oobFrom, oobTo, mx)
+                    shareRes.incrementKey('oob_sent')
+                    return 'OOB sent,from {} to {} via {}'.format(oobFrom, oobTo, mx)
             except smtplib.SMTPException as err:
+                shareRes.incrementKey('oob_smtp_error')
                 return '!OOB endpoint returned SMTP error: ' + str(err)
 
 
@@ -228,7 +245,7 @@ def oobGen(mail):
 # -----------------------------------------------------------------------------
 
 # Class holding persistent requests session IDs
-class persistentSession():
+class PersistentSession():
     def __init__(self, Nthreads):
         # Set up our connection pool
         self.svec = [None] * Nthreads
@@ -266,29 +283,41 @@ class MyHTMLClickParser(HTMLParser):
                     url = attr[1]
                     self.requestSession.get(url)                    # 'click' the links by getting them
 
-def xstr(s):
-    return '' if s is None else str(s)
-
 # open / open again / click / click again logic, as per conditional probabilities
-def openClickMail(mail, probs, logger):
+def openClickMail(mail, probs, shareRes):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.as_string()
         htmlOpenParser = MyHTMLOpenParser(persist.id(0))  # use persistent session ID
         ll += 'Open'
+        shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
         if random.random() <= probs['OpenAgain_Given_Open']:
             htmlOpenParser.feed(body)
-            ll += ',OpenAgain'
+            ll += '_OpenAgain'
+            shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
             htmlClickParser = MyHTMLClickParser(persist.id(0))
             htmlClickParser.feed(body)
-            ll += ',Click'
+            ll += '_Click'
+            shareRes.incrementKey('click')
             if random.random() <= probs['ClickAgain_Given_Click']:
                 htmlClickParser.feed(body)
-                ll += ',ClickAgain'
+                ll += '_ClickAgain'
+                shareRes.incrementKey('click_again')
     return ll
+
+# -----------------------------------------------------------------------------
+# Record results for webReporter
+# -----------------------------------------------------------------------------
+
+def checkAndSetFirstRun(st, logger, shareRes):
+    k = 'startedRunning'
+    res = shareRes.getResult(k)                         # read back results from previous run (if any)
+    if not res:
+        ok = shareRes.setResult(k, st)
+        logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
 
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
@@ -296,7 +325,7 @@ def openClickMail(mail, probs, logger):
 # Actions taken are logged.
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, logger):
+def processMail(mail, fname, probs, logger, shareRes):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     # Test that message was checked by PMTA and has valid DKIM signature
@@ -306,30 +335,38 @@ def processMail(mail, fname, probs, logger):
         subd = mail['to'].split('@')[1].split('.')[0]
         if subd == 'oob':
             if 'spf=pass' in auth:
-                logline += ',' + oobGen(mail)
+                logline += ',' + oobGen(mail, shareRes)
             else:
                 logline += ',!Special ' + subd + ' failed SPF check'
+                shareRes.incrementKey('fail_spf')
         elif subd == 'fbl':
             if 'spf=pass' in auth:
-                logline += ',' + fblGen(mail)
+                logline += ',' + fblGen(mail, shareRes)
             else:
                 logline += ',!Special ' + subd + ' failed SPF check'
+                shareRes.incrementKey('fail_spf')
         elif subd == 'openclick':
-            logline += ',' + openClickMail(mail, probs, logger)             # doesn't need SPF pass
+            logline += ',' + openClickMail(mail, probs, shareRes)       # doesn't need SPF pass
         elif subd == 'accept':
-            pass
+            logline += ',Accept'
+            shareRes.incrementKey('accept')
         else:
             # Apply probabilistic model to all other domains
             if random.random() <= probs['OOB']:
                 # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-                logline += ',' + oobGen(mail)
+                logline += ',' + oobGen(mail, shareRes)
             elif random.random() <= probs['FBL']:
-                logline += ',' + fblGen(mail)
+                logline += ',' + fblGen(mail, shareRes)
             elif random.random() <= probs['Open']:
-                logline += ',' + openClickMail(mail, probs, logger)
+                logline += ',' + openClickMail(mail, probs, shareRes)
+            else:
+                logline += ',Accept'
+                shareRes.incrementKey('accept')
     else:
         logline += ',!DKIM fail:' + xstr(auth)
+        shareRes.incrementKey('fail_dkim')
     logger.info(logline)
+
 
 # -----------------------------------------------------------------------------
 # Set up probabilistic model for incoming mail
@@ -375,31 +412,6 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-# -----------------------------------------------------------------------------
-# Record results for webReporter
-# -----------------------------------------------------------------------------
-
-# Format used for time strings in results
-def timeStr(t):
-    utc = datetime.fromtimestamp(t, timezone.utc)
-    return datetime.isoformat(utc, sep='T', timespec='seconds')
-
-def checkAndRecordFirstRun(startTime):
-    res = getResult('startedRunning')                               # read back results from previous run (if any)
-    if not res:
-        res = {
-            'startedRunning': timeStr(startTime),  # this is the first run - initialise
-            'nOOB': 0,
-            'nFBL': 0,
-            'nOpen': 0,
-            'nClick': 0,
-            'nOpenAgain': 0,
-            'nClickAgain': 0,
-            'nOOBError': 0,
-            'nFBLError': 0,
-        }
-        ok = setResults(res)
-
 # Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
     startTime = time.time()                                         # measure run time
@@ -413,13 +425,15 @@ def consumeFiles(fnameList, cfg):
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
+    shareRes = Results()                                            # class for sharing summary results
+
     probs = getBounceProbabilities(cfg, logger)
     if probs:
-        checkAndRecordFirstRun(startTime)
+        checkAndSetFirstRun(timeStr(startTime), logger, shareRes)
         if fnameList is None:
             logger.info('** Consuming mail from stdin')
             msg = email.message_from_file(sys.stdin, policy=policy.default)
-            processMail(msg, 'stdin', probs, logger)
+            processMail(msg, 'stdin', probs, logger, shareRes)
         else:
             logger.info('** Consuming {} mail file(s)'.format(len(fnameList)))
             countDone = 0
@@ -430,7 +444,7 @@ def consumeFiles(fnameList, cfg):
                         with open(fname) as fIn:
                             os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                             msg = email.message_from_file(fIn, policy=policy.default)
-                            processMail(msg, fname, probs, logger)
+                            processMail(msg, fname, probs, logger, shareRes)
                             countDone += 1
                 except Exception as e:                              # catch any exceptions, keep going
                     logger.error(str(e))
@@ -452,7 +466,7 @@ config = configparser.ConfigParser()
 config.read_file(open(configFileName()))
 cfg = config['DEFAULT']
 Nthreads = cfg.getint('Threads', 1)
-persist = persistentSession(Nthreads)                               # hold a set of persistent 'requests' sessions
+persist = PersistentSession(Nthreads)                               # hold a set of persistent 'requests' sessions
 
 if len(sys.argv) >= 3:
     if sys.argv[1] == '-f':
