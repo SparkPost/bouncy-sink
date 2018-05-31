@@ -328,6 +328,7 @@ def checkAndSetFirstRun(st, logger, shareRes):
 def processMail(mail, fname, probs, logger, shareRes):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
+    shareRes.incrementKey('total_messages')
     # Test that message was checked by PMTA and has valid DKIM signature
     auth = mail['Authentication-Results']
     if auth != None and 'dkim=pass' in auth:

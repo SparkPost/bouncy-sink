@@ -17,16 +17,42 @@ h2 { font-family: arial; font-size: 18px }
 </head>
 
 
-<table class="TFtable">
+<table>
 <tr>
     <th><h1>SparkPost Bouncy Sink</h1></th>
     <th><img align="right" src="https://raw.githubusercontent.com/tuck1s/sparkpost-traffic-gen/master/SparkPost_App-Icon_180x180.png" alt="SparkPost app icon" width="60" height="60" caption="false" /></th>
 </tr>
 </table>
 
-<h2>Results</h2>
-<table class="TFtable">
-<tr> <td>Started running</td> <td>{{startedRunning}}</td></tr>
+<h2>Responses from sink script</h2>
+<table>
+    <tr><td>Started running</td> <td>{{startedRunning}}</td></tr>
+    <tr><td>Messages processed</td> <td>{{total_messages}}</td></tr>
+    <tr><td> - Accepted, not opened</td> <td>{{accept}}</td></tr>
+    <tr><td> - Opened</td> <td>{{open}}</td></tr>
+    <tr><td> - Opened a second time</td> <td>{{open_again}}</td></tr>
+    <tr><td> - Clicked</td> <td>{{click}}</td></tr>
+    <tr><td> - Clicked a second time</td> <td>{{click_again}}</td></tr>
+    <tr><td>OOB replies successfully sent</td> <td>{{oob_sent}}</td></tr>
+    <tr><td>FBL replies successfully sent</td> <td>{{fbl_sent}}</td></tr>
+</table>
+
+<br><br>
+Only messages processed by the script on the main listener are counted; excludes traffic on the dummy-smtp listener, approx half of the total.
+<br><br>
+
+<h2>Error responses</h2>
+<table>
+    <tr><td>DKIM error, inbound mail DKIM header missing or failed</td> <td>{{fail_dkim}}</td></tr>
+    <tr><td>SPF error, checks failed</td> <td>{{fail_spf}}</td></tr>
+    <tr><td>OOB error, inbound mail missing Return-Path:</td> <td>{{oob_missing_return_path}}</td></tr>
+    <tr><td>OOB error, inbound mail missing To:</td> <td>{{oob_missing_to}}</td></tr>
+    <tr><td>OOB error, return path not SparkPost</td> <td>{{oob_return_path_not_sparkpost}}</td></tr>
+    <tr><td>OOB error, getting SMTP error response</td> <td>{{oob_smtp_error}}</td></tr>
+    <tr><td>FBL error, inbound mail missing Return-Path:</td> <td>{{fbl_missing_return_path}}</td></tr>
+    <tr><td>FBL error, inbound mail missing To:</td> <td>{{fbl_missing_to}}</td></tr>
+    <tr><td>FBL error, return path not SparkPost</td> <td>{{fbl_return_path_not_sparkpost}}</td></tr>
+    <tr><td>FBL error, getting SMTP error response</td> <td>{{fbl_smtp_error}}</td></tr>
 </table>
 
 <p><em>Get this data in JSON format from <a href="{{jsonUrl}}"<pre>{{jsonUrl}}</pre></a>

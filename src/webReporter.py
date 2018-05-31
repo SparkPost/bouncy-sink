@@ -25,6 +25,7 @@ class Results():
         return ok
 
     def getMatchingResults(self):
+        res = {}
         for k in self.r.scan_iter(match=self.rkeyPrefix+'*'):
             v = self.r.get(k).decode('utf-8')
             idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
