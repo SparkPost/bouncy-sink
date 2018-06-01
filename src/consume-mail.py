@@ -258,30 +258,44 @@ class PersistentSession():
     def size(self):
         return len(self.svec)
 
+def isSparkPostTrackingEndpoint(s, url):
+    r = s.options(url, allow_redirects=False, timeout=5)
+    return r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
+
+def touchEndPoint(s, url):
+    r = s.get(url, allow_redirects=False, timeout=5, stream=True)
+
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
-    def __init__(self, s):
+    def __init__(self, s, shareRes):
         HTMLParser.__init__(self)
-        self.requestSession = s                                     # Use persistent 'requests' session for speed
+        self.requestSession = s                             # Use persistent 'requests' session for speed
+        self.shareRes = shareRes                            # shared results handle
 
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
-            for attr in attrs:
-                if attr[0] == 'src':
-                    url = attr[1]
-                    self.requestSession.get(url)                    # 'open' the mail by getting image(s)
+            for attrName, attrValue in attrs:
+                if attrName == 'src':
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue):     # attrValue = url
+                        touchEndPoint(self.requestSession, attrValue)                   # "open"
+                    else:
+                        self.shareRes.incrementKey('open_url_not_sparkpost')
+
 
 class MyHTMLClickParser(HTMLParser):
-    def __init__(self, s):
+    def __init__(self, s, shareRes):
         HTMLParser.__init__(self)
-        self.requestSession = s                                     # Use persistent 'requests' session for speed
+        self.requestSession = s                             # Use persistent 'requests' session for speed
+        self.shareRes = shareRes                            # shared results handle
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
-            for attr in attrs:
-                if attr[0] == 'href':
-                    url = attr[1]
-                    self.requestSession.get(url)                    # 'click' the links by getting them
+            for attrName, attrValue in attrs:
+                if attrName == 'href':
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue):     # attrValue = url
+                        touchEndPoint(self.requestSession, attrValue)                   # "click"
+                    else:
+                        self.shareRes.incrementKey('click_url_not_sparkpost')
 
 # open / open again / click / click again logic, as per conditional probabilities
 def openClickMail(mail, probs, shareRes):
@@ -289,7 +303,7 @@ def openClickMail(mail, probs, shareRes):
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.as_string()
-        htmlOpenParser = MyHTMLOpenParser(persist.id(0))  # use persistent session ID
+        htmlOpenParser = MyHTMLOpenParser(persist.id(0), shareRes)  # use persistent session for speed
         ll += 'Open'
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
@@ -298,7 +312,7 @@ def openClickMail(mail, probs, shareRes):
             ll += '_OpenAgain'
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
-            htmlClickParser = MyHTMLClickParser(persist.id(0))
+            htmlClickParser = MyHTMLClickParser(persist.id(0), shareRes)
             htmlClickParser.feed(body)
             ll += '_Click'
             shareRes.incrementKey('click')
