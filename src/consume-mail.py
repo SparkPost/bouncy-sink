@@ -258,10 +258,12 @@ class PersistentSession():
     def size(self):
         return len(self.svec)
 
+# Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
 def isSparkPostTrackingEndpoint(s, url):
     r = s.options(url, allow_redirects=False, timeout=5)
     return r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
 
+# Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url):
     r = s.get(url, allow_redirects=False, timeout=5, stream=True)
 
@@ -302,7 +304,7 @@ def openClickMail(mail, probs, shareRes):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
-        body = bd.as_string()
+        body = bd.get_content()                             # this handles quoted-printable type for us
         htmlOpenParser = MyHTMLOpenParser(persist.id(0), shareRes)  # use persistent session for speed
         ll += 'Open'
         shareRes.incrementKey('open')
