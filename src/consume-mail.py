@@ -22,13 +22,11 @@ def configFileName():
 
 def printHelp():
     print('\nNAME')
-    print('   ' + baseProgName() + ' [-f file | -d dir]')
+    print('   ' + baseProgName() + ' -d dir')
     print('   Consume inbound mails, generating opens, clicks, OOBs and FBLs\n')
     print('   Config file {} for must be present in current directory'.format(configFileName()))
     print('')
     print('Parameters')
-    print('    (no params)  - ingest a single mail from stdin, e.g. cat mail.msg | src/{}'.format(baseProgName()))
-    print('    -f file      - ingest a single mail file in RFC822 format')
     print('    -d directory - look for *.msg files, ingest them, renaming to *.old')
     print('')
     print('Output')
@@ -325,15 +323,43 @@ def openClickMail(mail, probs, shareRes):
     return ll
 
 # -----------------------------------------------------------------------------
-# Record results for webReporter
+# Record results for webReporter and in logfile
 # -----------------------------------------------------------------------------
 
-def checkAndSetFirstRun(st, logger, shareRes):
+def startConsumeFiles(cfg, fLen):
+    startTime = time.time()                                         # measure run time
+    # Log some info on mail that is processed
+    logfile = cfg.get('Logfile', baseProgName() + '.log')
+    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
+    formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    shareRes = Results()                                            # class for sharing summary results
     k = 'startedRunning'
-    res = shareRes.getResult(k)                         # read back results from previous run (if any)
+    res = shareRes.getKey(k)                                        # read back results from previous run (if any)
     if not res:
-        ok = shareRes.setResult(k, st)
+        ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
+    logger.info('** Consuming {} mail file(s)'.format(fLen))
+    
+    shareRes.incrementKey('processes')                              # meter number of concurrent processes running
+    p = shareRes.getKey_int('processes')
+    p_max = shareRes.getKey_int('processes_max')
+    if p > p_max:
+        shareRes.setKey_int('processes_max', p)
+    return shareRes, logger, startTime
+
+def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
+    endTime = time.time()
+    runTime = endTime - startTime
+    runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
+    logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone,
+        countSkipped, runRate))
+    shareRes.decrementKey('processes')
 
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
@@ -431,45 +457,23 @@ def getBounceProbabilities(cfg, logger):
 
 # Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
-    startTime = time.time()                                         # measure run time
-    # Log some info on mail that is processed
-    logfile = cfg.get('Logfile', baseProgName() + '.log')
-    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
-    formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
-    shareRes = Results()                                            # class for sharing summary results
-
+    shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
     probs = getBounceProbabilities(cfg, logger)
     if probs:
-        checkAndSetFirstRun(timeStr(startTime), logger, shareRes)
-        if fnameList is None:
-            logger.info('** Consuming mail from stdin')
-            msg = email.message_from_file(sys.stdin, policy=policy.default)
-            processMail(msg, 'stdin', probs, logger, shareRes)
-        else:
-            logger.info('** Consuming {} mail file(s)'.format(len(fnameList)))
-            countDone = 0
-            countSkipped = 0
-            for fname in fnameList:
-                try:
-                    if os.path.isfile(fname):
-                        with open(fname) as fIn:
-                            os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
-                            msg = email.message_from_file(fIn, policy=policy.default)
-                            processMail(msg, fname, probs, logger, shareRes)
-                            countDone += 1
-                except Exception as e:                              # catch any exceptions, keep going
-                    logger.error(str(e))
-                    countSkipped += 1
-        endTime = time.time()
-        runTime = endTime-startTime
-        runRate = (0 if runTime==0 else countDone/runTime)          # Ensure no divide by zero
-        logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone, countSkipped, runRate) )
+        countDone = 0
+        countSkipped = 0
+        for fname in fnameList:
+            try:
+                if os.path.isfile(fname):
+                    with open(fname) as fIn:
+                        os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
+                        msg = email.message_from_file(fIn, policy=policy.default)
+                        processMail(msg, fname, probs, logger, shareRes)
+                        countDone += 1
+            except Exception as e:                              # catch any exceptions, keep going
+                logger.error(str(e))
+                countSkipped += 1
+        stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
 
 # -----------------------------------------------------------------------------
 # Main code
@@ -482,20 +486,14 @@ def consumeFiles(fnameList, cfg):
 config = configparser.ConfigParser()
 config.read_file(open(configFileName()))
 cfg = config['DEFAULT']
-Nthreads = cfg.getint('Threads', 1)
-persist = PersistentSession(Nthreads)                               # hold a set of persistent 'requests' sessions
+persist = PersistentSession(1)                                      # hold a persistent session (global)
 
 if len(sys.argv) >= 3:
-    if sys.argv[1] == '-f':
-        consumeFiles([sys.argv[2]], cfg)
-    elif sys.argv[1] == '-d':
+    if sys.argv[1] == '-d':
         dir = sys.argv[2].rstrip('/')                               # strip trailing / if present
         fnameList = glob.glob(os.path.join(dir, '*.msg'))
         consumeFiles(fnameList, cfg)
     else:
         printHelp()
 else:
-    if len(sys.argv) <= 1:                                          # empty args - read stdin
-        consumeFiles(None, cfg)
-    else:
-        printHelp()
+    printHelp()

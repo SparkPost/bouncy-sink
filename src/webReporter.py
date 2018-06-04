@@ -15,12 +15,12 @@ class Results():
         self.rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
 
     # Access to Redis data
-    def getResult(self, k):
+    def getKey(self, k):
         res = self.r.get(self.rkeyPrefix + k)
         return res
 
     # returns True if data written back to Redis OK.  d is a dict of key-value pairs to write
-    def setResult(self, k, v):
+    def setKey(self, k, v):
         ok = self.r.set(self.rkeyPrefix + k, v)
         return ok
 
@@ -36,9 +36,24 @@ class Results():
                 res[idx] =  v                                           # use as string
         return res
 
-    # Creates key if not already existing
+    # wrapper functions for integer type counters. Mark type in key name, as all redis objs are natively Bytes
     def incrementKey(self, k):
-        self.r.incr(self.rkeyPrefix + 'int_' + k)                       # mark type in key name, as all redis objs are string
+        self.r.incr(self.rkeyPrefix + 'int_' + k)
+
+    def decrementKey(self, k):
+        self.r.decr(self.rkeyPrefix + 'int_' + k)
+
+    def getKey_int(self, k):
+        v = self.r.get(self.rkeyPrefix + 'int_' + k)                    # force conversion on way out
+        if v:
+            v2 = v.decode('utf-8')
+            return int(v2) if v2.isnumeric() else 0
+        else:
+            return 0
+
+    def setKey_int(self, k, v):
+        ok = self.r.set(self.rkeyPrefix + 'int_' + k, v)                # allow redis to set type on way in
+        return ok
 
 # Flask entry points
 @app.route('/', methods=['GET'])

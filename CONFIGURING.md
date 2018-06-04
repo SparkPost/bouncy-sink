@@ -10,48 +10,12 @@ Host capable of running PMTA 4.x
 - python3 + pip
 - git cli
 - PMTA install file + 4.x license
+- redis
+- gunicorn (for web reporting)
 
 ## Example installation - with Amazon EC2 Linux
 
-TODO: check this on a clean install
-```
-sudo su -
-sudo rpm -Uvh PowerMTA-4.5r13-201803291724.x86_64.rpm 
-
-# remove sendmail which otherwise tries to grab port 25
-service sendmail stop
-sudo chkconfig sendmail off
-
-# make a directory to receive inbound mail
-sudo mkdir /var/spool/mail/inbound
-```
-git clone this project into your home dir
-
-Move files from this project `etc/pmta` into `/etc/pmta`
-
-Configure in /etc/pmta/config:
-```
-postmaster
-smtp-listener
-dummy-smtp-ip
-```
-
-Check PMTA starts
-```
-sudo service pmta start
-```
-
-Set up DNS entries to map inbound domains to your host IP addresses.
-
-Send in some mail, check it arrives in the `inbound` spool directory.
-
-Run the Python script manually using 
-
-```
-sudo src/consume-mail.py -d /var/spool/mail/inbound/
-```
-
-Set up crontab to run script. The easiest way to do this is `crontab -e` then paste in the contents of `cronfile` from the project.
+See [INSTALLING.md](INSTALLING.md)
 
 ## Network environment
 
@@ -127,22 +91,18 @@ or OOB reply back to SparkPost.
 
 If running the usual setup from crontab, you can skip this section.
 
-The script can be fed a directory (where it looks for, processes, and deletes) files ending in `.msg`.
-
-It can also be fed a single file with `-f`, or (with no params) ingest content from stdin.
+The script is fed a directory (where it looks for, processes, and deletes) files ending in `.msg`.
 
 ```
-$ sudo src/consume-mail.py -help
+$ src/consume-mail.py 
 
 NAME
-   consume-mail.py [-f file | -d dir]
+   consume-mail.py -d dir
    Consume inbound mails, generating opens, clicks, OOBs and FBLs
 
    Config file consume-mail.ini for must be present in current directory
 
 Parameters
-    (no params)  - ingest a single mail from stdin, e.g. cat mail.msg | src/consume-mail.py
-    -f file      - ingest a single mail file in RFC822 format
     -d directory - look for *.msg files, ingest them, renaming to *.old
 
 Output
