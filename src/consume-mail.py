@@ -342,6 +342,7 @@ def startConsumeFiles(cfg, fLen):
     k = 'startedRunning'
     res = shareRes.getKey(k)                                        # read back results from previous run (if any)
     if not res:
+        st = timeStr(startTime)
         ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
     logger.info('** Consuming {} mail file(s)'.format(fLen))
@@ -360,6 +361,9 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
     logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone,
         countSkipped, runRate))
     shareRes.decrementKey('processes')
+    history = 24 * 60 * 60                                          # keep this much time-series history (seconds)
+    shareRes.delTimeSeriesOlderThan(int(startTime) - history)
+
 
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
@@ -371,6 +375,8 @@ def processMail(mail, fname, probs, logger, shareRes):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     shareRes.incrementKey('total_messages')
+    ts_min_resolution = int(time.time()//60)*60
+    shareRes.incrementTimeSeries(str(ts_min_resolution))
     # Test that message was checked by PMTA and has valid DKIM signature
     auth = mail['Authentication-Results']
     if auth != None and 'dkim=pass' in auth:

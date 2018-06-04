@@ -2,6 +2,12 @@
 #
 # Web reporting and access functions for shared data held in Redis
 # Expects to be run in main project directory, i.e, resources in relative path ./templates
+#
+# Author: Steve Tuck.  (c) 2018 SparkPost
+#
+# Pre-requisites:
+#   pip3 install flask, redis
+#
 import os, redis, json
 from flask import Flask, make_response, render_template, request, send_file
 app = Flask(__name__)
@@ -26,14 +32,22 @@ class Results():
 
     def getMatchingResults(self):
         res = {}
+        ts = {}                                                         # time-series results
         for k in self.r.scan_iter(match=self.rkeyPrefix+'*'):
             v = self.r.get(k).decode('utf-8')
             idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
             if idx.startswith('int_'):
                 idx= idx[len('int_'):]                                  # strip the pseudo-type prefix
                 res[idx] =  int(v)                                      # use as int
+            elif idx.startswith('ts_'):
+                idx= idx[len('ts_'):]                                   # strip the pseudo-type prefix
+                ts[idx] = int(v)                                        # build dict of (ts, v) pairs
             else:
                 res[idx] =  v                                           # use as string
+
+        res['time_series'] = {}
+        for key in sorted(ts.keys()):
+            res['time_series'][key] = ts[key]
         return res
 
     # wrapper functions for integer type counters. Mark type in key name, as all redis objs are natively Bytes
@@ -54,6 +68,16 @@ class Results():
     def setKey_int(self, k, v):
         ok = self.r.set(self.rkeyPrefix + 'int_' + k, v)                # allow redis to set type on way in
         return ok
+
+    def incrementTimeSeries(self, k):
+        self.r.incr(self.rkeyPrefix + 'ts_' + k)
+
+    def delTimeSeriesOlderThan(self, t):
+        for k in self.r.scan_iter(match=self.rkeyPrefix + 'ts_*'):
+            idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
+            ts = int(idx[len('ts_'):])                                  # got the metric's timestamp as int
+            if ts < t:
+                self.r.delete(k)
 
 # Flask entry points
 @app.route('/', methods=['GET'])

@@ -146,7 +146,7 @@ On your client, open an SSH connection with port 8888 tunneled:
 ssh -i ##YourPrivateKeyHere## -L 8888:localhost:8888 YourUser@example.com
 ```
 
-Open page `localhost:8888` on your browser:
+Open page `localhost:8888` on your client browser:
 
 <img src="doc-img/bouncy-sink-private-web-monitor.png"/>
 
