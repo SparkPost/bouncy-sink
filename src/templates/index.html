@@ -2,9 +2,9 @@
 <html>
 <head>
 <style>
-table { border-collapse: collapse; width: 800px; }
+table { border-width: thick; border-color: black; width: 800px; }
 
-th, td { text-align: left; padding: 8px; width: 400px; }
+td { text-align: left; padding: 8px; }
 
 tr:nth-child(even) {background-color: #f2f2f2;}
 
@@ -13,14 +13,17 @@ body { font-family: arial; }
 h1 { font-family: arial; font-size: 24px }
 
 h2 { font-family: arial; font-size: 18px }
+
+p { width: 800px }
 </style>
 </head>
 
 
 <table>
 <tr>
-    <th><h1>SparkPost Bouncy Sink</h1></th>
-    <th><img align="right" src="https://raw.githubusercontent.com/sparkpost/bouncy-sink/master/src/SparkPost_App-Icon_180x180.png" alt="SparkPost app icon" width="60" height="60" caption="false" /></th>
+    <td><img align="left" src="https://raw.githubusercontent.com/sparkpost/bouncy-sink/master/src/SparkPost_App-Icon_180x180.png" alt="SparkPost app icon" width="60" height="60" caption="false" /></td>
+    <td><h1 align="center">SparkPost Bouncy Sink</h1></td>
+    <td><img align="right" src="https://raw.githubusercontent.com/sparkpost/bouncy-sink/master/src/bouncy_sink_App-Icon_180x180.png" alt="SparkPost app icon" width="60" height="60" caption="false" /></td>
 </tr>
 </table>
 
@@ -37,9 +40,11 @@ h2 { font-family: arial; font-size: 18px }
     <tr><td>FBL replies successfully sent</td> <td>{{fbl_sent}}</td></tr>
 </table>
 
-<br><br>
+<br>
+<p>
 Only messages processed by the script on the main listener are counted; excludes traffic on the dummy-smtp listener, approx half of the total.
-<br><br>
+</p>
+<br>
 
 <h2>Error responses</h2>
 <table>
