@@ -64,9 +64,13 @@ For these actions, messages must have a valid DKIM signature.
 
 ### Opens and Clicks
 
-If an HTML mail part is present, the sink opens ("renders") the mail by fetching any `<img .. src="..">` tags present in the received mail.
+If an HTML mail part is present, the sink opens ("renders") the mail by fetching `<img .. src="..">` tags 
+present in the received mail that are served by SparkPost's engagement tracker endpoint.
 
-The sink clicks links by fetching any  `<a .. href="..">` tags present in the received mail.
+The sink clicks links in similar manner by fetching any  `<a .. href="..">` tags present in the received mail.
+
+The sink uses an `OPTIONS` http request (which will, conicidentally be rejected by the engagement tracker) to check the server type.
+It does not actually follow the link redirect, or fetch the whole object.
 
 ### FBLs (aka Spam Complaints)
 
@@ -109,6 +113,60 @@ All OOB and FBL actions require the `Return-Path:` MX to resolve back to a known
 ### Internal application logfile
 
 All actions are logged, with configurable logfile retention and midnight rotation.
+
+### Redis & Web reporting
+
+The main script increments counters in `redis` which can be queried directly using `redis-cli`:
+
+```
+$ redis-cli
+127.0.0.1:6379> keys *
+ 1) "consume-mail:0:int_fbl_sent"
+ 2) "consume-mail:0:startedRunning"
+ 3) "consume-mail:0:int_open_again"
+ 4) "consume-mail:0:int_open"
+ 5) "consume-mail:0:int_fail_dkim"
+ 6) "consume-mail:0:int_oob_sent"
+ 7) "consume-mail:0:int_accept"
+ 8) "consume-mail:0:int_click_again"
+ 9) "consume-mail:0:int_total_messages"
+10) "consume-mail:0:int_click"
+11) "consume-mail:0:int_open_url_not_sparkpost"
+127.0.0.1:6379> get consume-mail:0:int_total_messages
+"13315977"
+```
+`webReporter.py` is a simple Flask-based reporting app to present these counters.
+On the server, start `gunicorn` on private port number 8888
+```
+cd ~/bouncy-sink/src; sudo /usr/local/bin/gunicorn webReporter:app --bind=0.0.0.0:8888 --access-logfile /var/log/gunicorn.log --daemon
+```
+
+On your client, open an SSH connection with port 8888 tunneled:
+```
+ssh -i ##YourPrivateKeyHere## -L 8888:localhost:8888 YourUser@example.com
+```
+
+Open page `localhost:8888` on your browser:
+
+<img src="doc-img/bouncy-sink-private-web-monitor.png"/>
+
+You can also fetch the stats in JSON format:
+```
+$ curl -s localhost:8888/json | jq .
+{
+  "fbl_sent": 2607,
+  "fail_dkim": 7,
+  "oob_sent": 133559,
+  "startedRunning": "2018-05-31T00:30:58+00:00",
+  "open_again": 2640376,
+  "click": 2642225,
+  "total_messages": 13340946,
+  "open": 7922352,
+  "open_url_not_sparkpost": 1,
+  "accept": 5282421,
+  "click_again": 792616
+}
+```
 
 ### SparkPost suppression list cleaning
 
