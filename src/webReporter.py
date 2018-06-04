@@ -10,7 +10,12 @@
 #
 import os, redis, json
 from flask import Flask, make_response, render_template, request, send_file
+from datetime import datetime, timezone
 app = Flask(__name__)
+
+def timeStr(t):
+    utc = datetime.fromtimestamp(t, timezone.utc)
+    return datetime.isoformat(utc, sep='T', timespec='seconds')
 
 class Results():
     def __init__(self):
@@ -40,14 +45,14 @@ class Results():
                 idx= idx[len('int_'):]                                  # strip the pseudo-type prefix
                 res[idx] =  int(v)                                      # use as int
             elif idx.startswith('ts_'):
-                idx= idx[len('ts_'):]                                   # strip the pseudo-type prefix
+                idx= int(idx[len('ts_'):])                              # strip the pseudo-type prefix
                 ts[idx] = int(v)                                        # build dict of (ts, v) pairs
             else:
                 res[idx] =  v                                           # use as string
 
-        res['time_series'] = {}
+        res['time_series'] = []
         for key in sorted(ts.keys()):
-            res['time_series'][key] = ts[key]
+            res['time_series'].append( {'ts' : timeStr(key), 'messages': ts[key] } )
         return res
 
     # wrapper functions for integer type counters. Mark type in key name, as all redis objs are natively Bytes
@@ -72,12 +77,16 @@ class Results():
     def incrementTimeSeries(self, k):
         self.r.incr(self.rkeyPrefix + 'ts_' + k)
 
+    def setPSTimeSeries(self, k, v):
+        self.r.set(self.rkeyPrefix + 'ps_' + k, v)
+
     def delTimeSeriesOlderThan(self, t):
-        for k in self.r.scan_iter(match=self.rkeyPrefix + 'ts_*'):
-            idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
-            ts = int(idx[len('ts_'):])                                  # got the metric's timestamp as int
-            if ts < t:
-                self.r.delete(k)
+        for i in ['ts_*', 'ps_*']:
+            for k in self.r.scan_iter(match=self.rkeyPrefix + i):
+                idx = k.decode('utf-8') [len(self.rkeyPrefix):]         # strip the app prefix
+                ts = int(idx[len('ts_'):])                              # got the metric's timestamp as int
+                if ts < t:
+                    self.r.delete(k)
 
 # Flask entry points
 @app.route('/', methods=['GET'])

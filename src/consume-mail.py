@@ -11,8 +11,7 @@ import logging, logging.handlers, sys, os, email, time, glob, requests, dns.reso
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
-from webReporter import Results
-from datetime import datetime, timezone
+from webReporter import Results, timeStr
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
@@ -35,9 +34,6 @@ def printHelp():
 def xstr(s):
     return '' if s is None else str(s)
 
-def timeStr(t):
-    utc = datetime.fromtimestamp(t, timezone.utc)
-    return datetime.isoformat(utc, sep='T', timespec='seconds')
 
 # -----------------------------------------------------------------------------
 # FBL and OOB handling
@@ -349,6 +345,7 @@ def startConsumeFiles(cfg, fLen):
     
     shareRes.incrementKey('processes')                              # meter number of concurrent processes running
     p = shareRes.getKey_int('processes')
+    shareRes.setPSTimeSeries(str(int(startTime)), p)
     p_max = shareRes.getKey_int('processes_max')
     if p > p_max:
         shareRes.setKey_int('processes_max', p)
@@ -361,7 +358,7 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
     logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone,
         countSkipped, runRate))
     shareRes.decrementKey('processes')
-    history = 24 * 60 * 60                                          # keep this much time-series history (seconds)
+    history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
     shareRes.delTimeSeriesOlderThan(int(startTime) - history)
 
 
