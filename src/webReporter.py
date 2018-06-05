@@ -110,7 +110,7 @@ def status_html():
     if not r:
         r = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}       # default data
     # pass in merged dict as named params to template substitutions
-    res = render_template('index.html', **r, jsonUrl=request.url+'json', chart_url=request.url+'chart')
+    res = render_template('index.html', **r, thisUrl=request.url)
     return res
 
 # This entry point returns JSON-format summary results report

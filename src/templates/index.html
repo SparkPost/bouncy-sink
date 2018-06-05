@@ -22,7 +22,10 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     google.charts.setOnLoadCallback(drawChart);
 
     function drawChart() {
-        fetch('http://localhost:5000/json/ts-processes')
+        // var source = url.resolve('{{thisUrl}}', 'json/ts-processes');
+        var source = '{{thisUrl}}json/ts-processes';
+        console.log(source);
+        fetch(source)
         .then(function (response) {
             return response.json();
         })
@@ -36,7 +39,6 @@ tr:nth-child(even) {background-color: #f2f2f2;}
                 console.log(ps[i].time, ps[i].processes);
                 data.addRow( [new Date(ps[i].time), ps[i].processes] );
             }
-            console.log(data);
             chart.draw(data, {displayAnnotations: true});
         })
         .catch(function (err) {
@@ -99,6 +101,6 @@ Only messages processed by the script on the main listener are counted; excludes
     <tr><td class="descr">A HREF URLs that are not SparkPost</td> <td>{{click_url_not_sparkpost}}</td></tr>
 </table>
 
-<p><em>Get this data in JSON format from <a href="{{jsonUrl}}">{{jsonUrl}}</a></em>
+<p><em>Get this data in JSON format from <a href="{{thisUrl}}json">{{thisUrl}}json</a></em>
 </body>
 </html>
