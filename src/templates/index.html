@@ -2,22 +2,48 @@
 <html>
 <head>
 <style>
-table { border-width: thick; border-color: black; width: 800px; }
-
-td { text-align: left; padding: 8px; }
-
-tr:nth-child(even) {background-color: #f2f2f2;}
-
 body { font-family: arial; }
+table { width: 800px; }
+p { width: 800px }
 
 h1 { font-family: arial; font-size: 24px }
-
 h2 { font-family: arial; font-size: 18px }
 
-p { width: 800px }
+td { text-align: left; padding: 8px; }
+td.descr {width: 60%}
+tr:nth-child(even) {background-color: #f2f2f2;}
 </style>
 </head>
 
+<body>
+<script src = "https://www.gstatic.com/charts/loader.js"></script>
+<script>
+    google.charts.load('current', {'packages':['annotatedtimeline']});
+    google.charts.setOnLoadCallback(drawChart);
+
+    function drawChart() {
+        fetch('http://localhost:5000/json/ts-processes')
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (ps) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('date', 'Date');
+            data.addColumn('number', 'Processes');
+            var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('chart_div'));
+
+            for (i = 0; i < ps.length; i++) {
+                console.log(ps[i].time, ps[i].processes);
+                data.addRow( [new Date(ps[i].time), ps[i].processes] );
+            }
+            console.log(data);
+            chart.draw(data, {displayAnnotations: true});
+        })
+        .catch(function (err) {
+            console.log(err);
+        });
+    }
+</script>
 
 <table>
 <tr>
@@ -27,50 +53,52 @@ p { width: 800px }
 </tr>
 </table>
 
+<h2>Performance</h2>
+<div id='chart_div' style='width: 800px; height: 400px;'></div>
+
+<table>
+    <tr><td class="descr">consume-mail processes (current)</td> <td>{{processes}}</td></tr>
+    <tr><td class="descr">consume-mail processes (max)</td> <td>{{processes_max}}</td></tr>
+</table>
+
 <h2>Responses from sink script</h2>
 <table>
-    <tr><td>Started running</td> <td>{{startedRunning}}</td></tr>
-    <tr><td>Messages processed</td> <td>{{total_messages}}</td></tr>
-    <tr><td> - Accepted, not opened</td> <td>{{accept}}</td></tr>
-    <tr><td> - Opened</td> <td>{{open}}</td></tr>
-    <tr><td> - Opened a second time</td> <td>{{open_again}}</td></tr>
-    <tr><td> - Clicked</td> <td>{{click}}</td></tr>
-    <tr><td> - Clicked a second time</td> <td>{{click_again}}</td></tr>
-    <tr><td>OOB replies successfully sent</td> <td>{{oob_sent}}</td></tr>
-    <tr><td>FBL replies successfully sent</td> <td>{{fbl_sent}}</td></tr>
+    <tr><td class="descr">Started running</td> <td>{{startedRunning}}</td></tr>
+    <tr><td class="descr">Messages processed</td> <td>{{total_messages}}</td></tr>
+    <tr><td class="descr"> - Accepted, not opened</td> <td>{{accept}}</td></tr>
+    <tr><td class="descr"> - Opened</td> <td>{{open}}</td></tr>
+    <tr><td class="descr"> - Opened a second time</td> <td>{{open_again}}</td></tr>
+    <tr><td class="descr"> - Clicked</td> <td>{{click}}</td></tr>
+    <tr><td class="descr"> - Clicked a second time</td> <td>{{click_again}}</td></tr>
+    <tr><td class="descr">OOB replies successfully sent</td> <td>{{oob_sent}}</td></tr>
+    <tr><td class="descr">FBL replies successfully sent</td> <td>{{fbl_sent}}</td></tr>
 </table>
 
 <br>
 <p>
 Only messages processed by the script on the main listener are counted; excludes traffic on the dummy-smtp listener, approx half of the total.
 </p>
-<br>
 
 <h2>Error responses</h2>
 <table>
-    <tr><td>DKIM error, inbound mail DKIM header missing or failed</td> <td>{{fail_dkim}}</td></tr>
-    <tr><td>SPF error, checks failed</td> <td>{{fail_spf}}</td></tr>
-    <tr><td>OOB error, inbound mail missing Return-Path:</td> <td>{{oob_missing_return_path}}</td></tr>
-    <tr><td>OOB error, inbound mail missing To:</td> <td>{{oob_missing_to}}</td></tr>
-    <tr><td>OOB error, return path not SparkPost</td> <td>{{oob_return_path_not_sparkpost}}</td></tr>
-    <tr><td>OOB error, getting SMTP error response</td> <td>{{oob_smtp_error}}</td></tr>
-    <tr><td>FBL error, inbound mail missing Return-Path:</td> <td>{{fbl_missing_return_path}}</td></tr>
-    <tr><td>FBL error, inbound mail missing To:</td> <td>{{fbl_missing_to}}</td></tr>
-    <tr><td>FBL error, return path not SparkPost</td> <td>{{fbl_return_path_not_sparkpost}}</td></tr>
-    <tr><td>FBL error, getting SMTP error response</td> <td>{{fbl_smtp_error}}</td></tr>
+    <tr><td class="descr">DKIM error, inbound mail DKIM header missing or failed</td> <td>{{fail_dkim}}</td></tr>
+    <tr><td class="descr">S class="descr"PF error, checks failed</td> <td>{{fail_spf}}</td></tr>
+    <tr><td class="descr">OOB error, inbound mail missing Return-Path:</td> <td>{{oob_missing_return_path}}</td></tr>
+    <tr><td class="descr">OOB error, inbound mail missing To:</td> <td>{{oob_missing_to}}</td></tr>
+    <tr><td class="descr">OOB error, return path not SparkPost</td> <td>{{oob_return_path_not_sparkpost}}</td></tr>
+    <tr><td class="descr">OOB error, getting SMTP error response</td> <td>{{oob_smtp_error}}</td></tr>
+    <tr><td class="descr">FBL error, inbound mail missing Return-Path:</td> <td>{{fbl_missing_return_path}}</td></tr>
+    <tr><td class="descr">FBL error, inbound mail missing To:</td> <td>{{fbl_missing_to}}</td></tr>
+    <tr><td class="descr">FBL error, return path not SparkPost</td> <td>{{fbl_return_path_not_sparkpost}}</td></tr>
+    <tr><td class="descr">FBL error, getting SMTP error response</td> <td>{{fbl_smtp_error}}</td></tr>
 </table>
 
 <h2>Open and click processing</h2>
 <table>
-    <tr><td>IMG SRC URLs that are not SparkPost</td> <td>{{open_url_not_sparkpost}}</td></tr>
-    <tr><td>A HREF URLs that are not SparkPost</td> <td>{{click_url_not_sparkpost}}</td></tr>
+    <tr><td class="descr">IMG SRC URLs that are not SparkPost</td> <td>{{open_url_not_sparkpost}}</td></tr>
+    <tr><td class="descr">A HREF URLs that are not SparkPost</td> <td>{{click_url_not_sparkpost}}</td></tr>
 </table>
 
-<h2>Performance</h2>
-<table>
-    <tr><td>consume-mail processes (current)</td> <td>{{processes}}</td></tr>
-    <tr><td>consume-mail processes (max)</td> <td>{{processes_max}}</td></tr>
-</table>
-
-<p><em>Get this data in JSON format from <a href="{{jsonUrl}}"<pre>{{jsonUrl}}</pre></a>
+<p><em>Get this data in JSON format from <a href="{{jsonUrl}}">{{jsonUrl}}</a></em>
+</body>
 </html>

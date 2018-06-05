@@ -6,12 +6,15 @@
 # Author: Steve Tuck.  (c) 2018 SparkPost
 #
 # Pre-requisites:
-#   pip3 install flask, redis
+#   pip3 install flask, redis, flask-cors
 #
 import os, redis, json
 from flask import Flask, make_response, render_template, request, send_file
 from datetime import datetime, timezone
+from flask_cors import CORS, cross_origin
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 def timeStr(t):
     utc = datetime.fromtimestamp(t, timezone.utc)
@@ -107,7 +110,7 @@ def status_html():
     if not r:
         r = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}       # default data
     # pass in merged dict as named params to template substitutions
-    res = render_template('index.html', **r, jsonUrl=request.url+'json')
+    res = render_template('index.html', **r, jsonUrl=request.url+'json', chart_url=request.url+'chart')
     return res
 
 # This entry point returns JSON-format summary results report
@@ -121,7 +124,8 @@ def status_json():
 
 # Time-series of number of messages processed
 @app.route('/json/ts-messages', methods=['GET'])
-def status_json_ts_messages():
+@cross_origin()
+def json_ts_messages():
     shareRes = Results()
     r = shareRes.getArrayResults(pfx='ts_', keyName='messages')
     flaskRes = make_response(json.dumps(r))
@@ -130,7 +134,8 @@ def status_json_ts_messages():
 
 # Time-series of number of active processes
 @app.route('/json/ts-processes', methods=['GET'])
-def status_json_ts_processes():
+@cross_origin()
+def json_ts_processes():
     shareRes = Results()
     r = shareRes.getArrayResults(pfx='ps_', keyName='processes')
     flaskRes = make_response(json.dumps(r))
