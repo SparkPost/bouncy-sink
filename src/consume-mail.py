@@ -358,6 +358,10 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
     logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone,
         countSkipped, runRate))
     shareRes.decrementKey('processes')
+    v = shareRes.getPSTimeSeries(str(int(endTime)))
+    if not v:
+        p = shareRes.getKey_int('processes')                        # record the finish, only if another hasn't started in this minute
+        shareRes.setPSTimeSeries(str(int(endTime)), p)
     history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
     shareRes.delTimeSeriesOlderThan(int(startTime) - history)
 

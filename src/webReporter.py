@@ -35,24 +35,14 @@ class Results():
         ok = self.r.set(self.rkeyPrefix + k, v)
         return ok
 
+    # collect basic metrics, i.e. started_running, and any keys prefixed int_
     def getMatchingResults(self):
-        res = {}
-        ts = {}                                                         # time-series results
-        for k in self.r.scan_iter(match=self.rkeyPrefix+'*'):
+        res = {'startedRunning': self.getKey('startedRunning').decode('utf-8') }
+        int_pfx = self.rkeyPrefix + 'int_'
+        for k in self.r.scan_iter(match=int_pfx+'*'):
             v = self.r.get(k).decode('utf-8')
-            idx = k.decode('utf-8') [len(self.rkeyPrefix):]             # strip the app prefix
-            if idx.startswith('int_'):
-                idx= idx[len('int_'):]                                  # strip the pseudo-type prefix
-                res[idx] =  int(v)                                      # use as int
-            elif idx.startswith('ts_'):
-                idx= int(idx[len('ts_'):])                              # strip the pseudo-type prefix
-                ts[idx] = int(v)                                        # build dict of (ts, v) pairs
-            else:
-                res[idx] =  v                                           # use as string
-
-        res['time_series'] = []
-        for key in sorted(ts.keys()):
-            res['time_series'].append( {'ts' : timeStr(key), 'messages': ts[key] } )
+            idx = k.decode('utf-8') [len(int_pfx):]                     # strip the app prefix
+            res[idx] =  int(v)                                      # use as int
         return res
 
     # wrapper functions for integer type counters. Mark type in key name, as all redis objs are natively Bytes
@@ -80,6 +70,14 @@ class Results():
     def setPSTimeSeries(self, k, v):
         self.r.set(self.rkeyPrefix + 'ps_' + k, v)
 
+    def getPSTimeSeries(self, k):                                       # return None if invalid or doesn't exist
+        v = self.r.get(self.rkeyPrefix + 'ps_' + k)
+        if v:
+            v2 = v.decode('utf-8')
+            return int(v2) if v2.isnumeric() else None
+        else:
+            return None
+
     def delTimeSeriesOlderThan(self, t):
         for i in ['ts_*', 'ps_*']:
             for k in self.r.scan_iter(match=self.rkeyPrefix + i):
@@ -87,6 +85,19 @@ class Results():
                 ts = int(idx[len('ts_'):])                              # got the metric's timestamp as int
                 if ts < t:
                     self.r.delete(k)
+
+    def getArrayResults(self, pfx, keyName):
+        ts_pfx = self.rkeyPrefix + pfx
+        t = {}
+        for k in self.r.scan_iter(match=ts_pfx+'*'):
+            v = self.r.get(k).decode('utf-8')
+            idx = k.decode('utf-8') [len(ts_pfx):]                      # strip the app prefix
+            t[idx] = int(v)                                             # use as int
+        res = []
+        for key in sorted(t.keys()):
+            res.append( {'time' : timeStr(int(key)), keyName: t[key] } )
+        return res
+
 
 # Flask entry points
 @app.route('/', methods=['GET'])
@@ -99,11 +110,29 @@ def status_html():
     res = render_template('index.html', **r, jsonUrl=request.url+'json')
     return res
 
-# This entry point returns JSON-format report on the traffic generator
+# This entry point returns JSON-format summary results report
 @app.route('/json', methods=['GET'])
 def status_json():
     shareRes = Results()                                            # class for sharing summary results
     r = shareRes.getMatchingResults()
+    flaskRes = make_response(json.dumps(r))
+    flaskRes.headers['Content-Type'] = 'application/json'
+    return flaskRes
+
+# Time-series of number of messages processed
+@app.route('/json/ts-messages', methods=['GET'])
+def status_json_ts_messages():
+    shareRes = Results()
+    r = shareRes.getArrayResults(pfx='ts_', keyName='messages')
+    flaskRes = make_response(json.dumps(r))
+    flaskRes.headers['Content-Type'] = 'application/json'
+    return flaskRes
+
+# Time-series of number of active processes
+@app.route('/json/ts-processes', methods=['GET'])
+def status_json_ts_processes():
+    shareRes = Results()
+    r = shareRes.getArrayResults(pfx='ps_', keyName='processes')
     flaskRes = make_response(json.dumps(r))
     flaskRes.headers['Content-Type'] = 'application/json'
     return flaskRes
