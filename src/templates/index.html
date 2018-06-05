@@ -12,6 +12,8 @@ h2 { font-family: arial; font-size: 18px }
 td { text-align: left; padding: 8px; }
 td.descr {width: 60%}
 tr:nth-child(even) {background-color: #f2f2f2;}
+
+div.chart { width: 800px; height: 400px; }
 </style>
 </head>
 
@@ -22,9 +24,7 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     google.charts.setOnLoadCallback(drawChart);
 
     function drawChart() {
-        // var source = url.resolve('{{thisUrl}}', 'json/ts-processes');
-        var source = '{{thisUrl}}json/ts-processes';
-        console.log(source);
+        var source = '{{thisUrl}}json/ts-messages';
         fetch(source)
         .then(function (response) {
             return response.json();
@@ -32,12 +32,11 @@ tr:nth-child(even) {background-color: #f2f2f2;}
         .then(function (ps) {
             var data = new google.visualization.DataTable();
             data.addColumn('date', 'Date');
-            data.addColumn('number', 'Processes');
+            data.addColumn('number', 'Messages per minute');
             var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('chart_div'));
 
             for (i = 0; i < ps.length; i++) {
-                console.log(ps[i].time, ps[i].processes);
-                data.addRow( [new Date(ps[i].time), ps[i].processes] );
+                data.addRow( [new Date(ps[i].time), ps[i].messages] );
             }
             chart.draw(data, {displayAnnotations: true});
         })
@@ -56,7 +55,7 @@ tr:nth-child(even) {background-color: #f2f2f2;}
 </table>
 
 <h2>Performance</h2>
-<div id='chart_div' style='width: 800px; height: 400px;'></div>
+<div id='chart_div' class='chart'></div>
 
 <table>
     <tr><td class="descr">consume-mail processes (current)</td> <td>{{processes}}</td></tr>
