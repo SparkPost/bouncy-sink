@@ -341,15 +341,20 @@ def startConsumeFiles(cfg, fLen):
         st = timeStr(startTime)
         ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
-    logger.info('** Consuming {} mail file(s)'.format(fLen))
-    
+
     shareRes.incrementKey('processes')                              # meter number of concurrent processes running
     p = shareRes.getKey_int('processes')
     shareRes.setPSTimeSeries(str(int(startTime)), p)
     p_max = shareRes.getKey_int('processes_max')
     if p > p_max:
         shareRes.setKey_int('processes_max', p)
-    return shareRes, logger, startTime
+    pLimit = cfg.getint('Process_Limit', 100)
+    pLimitReached = p >= pLimit
+    if pLimitReached:
+        logger.info('** Already {} processes running - will skip'.format(p))
+    else:
+        logger.info('** Process {} starting - consuming {} mail file(s)'.format(p, fLen))
+    return shareRes, logger, startTime, pLimitReached
 
 def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
     endTime = time.time()
@@ -464,23 +469,24 @@ def getBounceProbabilities(cfg, logger):
 
 # Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
-    shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
+    shareRes, logger, startTime, pLimitReached = startConsumeFiles(cfg, len(fnameList))
     probs = getBounceProbabilities(cfg, logger)
     if probs:
         countDone = 0
         countSkipped = 0
-        for fname in fnameList:
-            try:
-                if os.path.isfile(fname):
-                    with open(fname) as fIn:
-                        os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
-                        msg = email.message_from_file(fIn, policy=policy.default)
-                        processMail(msg, fname, probs, logger, shareRes)
-                        countDone += 1
-            except Exception as e:                              # catch any exceptions, keep going
-                logger.error(str(e))
-                countSkipped += 1
-        stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
+        if not pLimitReached:
+            for fname in fnameList:
+                try:
+                    if os.path.isfile(fname):
+                        with open(fname) as fIn:
+                            os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
+                            msg = email.message_from_file(fIn, policy=policy.default)
+                            processMail(msg, fname, probs, logger, shareRes)
+                            countDone += 1
+                except Exception as e:                              # catch any exceptions, keep going
+                    logger.error(str(e))
+                    countSkipped += 1
+    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
 
 # -----------------------------------------------------------------------------
 # Main code

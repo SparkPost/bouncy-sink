@@ -97,7 +97,7 @@ class Results():
             idx = k.decode('utf-8') [len(ts_pfx):]                      # strip the app prefix
             t[idx] = int(v)                                             # use as int
         res = []
-        for key in sorted(t.keys()):
+        for key in t.keys():
             res.append( {'time' : timeStr(int(key)), keyName: t[key] } )
         return res
 
