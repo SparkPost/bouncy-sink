@@ -95,10 +95,11 @@ class Results():
         for k in self.r.scan_iter(match=ts_pfx+'*'):
             v = self.r.get(k).decode('utf-8')
             idx = k.decode('utf-8') [len(ts_pfx):]                      # strip the app prefix
-            t[idx] = int(v)                                             # use as int
+            ascTime = timeStr(int(idx))
+            t[ascTime] = int(v)                                         # build dict of (time / value) pairs
         res = []
-        for key in t.keys():
-            res.append( {'time' : timeStr(int(key)), keyName: t[key] } )
+        for t, v in t.items():
+            res.append( {'time' : t, keyName: v } )
         return res
 
 
