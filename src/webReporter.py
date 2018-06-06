@@ -26,9 +26,9 @@ def dict_merge(d1, d2):
     merge.update(d2)
     return merge
 
-def list_merge(m, p, key, default_m, default_p):
-    assert sorted(m, key=lambda x: x['time']) == m
-    assert sorted(p, key=lambda x: x['time']) == p
+def list_of_dicts_merge(m, p, key, default_m, default_p):
+    assert sorted(m, key=lambda x: x[key]) == m
+    assert sorted(p, key=lambda x: x[key]) == p
     c = []
     mi = 0
     pi = 0
@@ -156,7 +156,7 @@ def json_ts_messages():
     shareRes = Results()
     m = shareRes.getArrayResults('ts_', 'messages')
     p = shareRes.getArrayResults('ps_', 'processes')
-    c = list_merge(m, p, 'time', {'messages': 0}, {'processes': 0}) # merge two time-series together
+    c = list_of_dicts_merge(m, p, 'time', {'messages': 0}, {'processes': 0}) # merge two time-series together
     flaskRes = make_response(json.dumps(c))
     flaskRes.headers['Content-Type'] = 'application/json'
     return flaskRes
