@@ -20,6 +20,31 @@ def timeStr(t):
     utc = datetime.fromtimestamp(t, timezone.utc)
     return datetime.isoformat(utc, sep='T', timespec='seconds')
 
+# functions to merge two overlapping lists of dicts
+def dict_merge(d1, d2):
+    merge = d1.copy()
+    merge.update(d2)
+    return merge
+
+def list_merge(m, p, key, default_m, default_p):
+    assert sorted(m, key=lambda x: x['time']) == m
+    assert sorted(p, key=lambda x: x['time']) == p
+    c = []
+    mi = 0
+    pi = 0
+    while mi<len(m) or pi<len(p):
+        if m[mi][key] < p[pi][key]:
+            c.append(dict_merge(m[mi], default_p))
+            mi += 1
+        elif m[mi][key] > p[pi][key]:
+            c.append(dict_merge(default_m, p[pi]))
+            pi += 1
+        else:
+            c.append(dict_merge(m[mi], p[pi]))                  # coincides
+            mi += 1
+            pi += 1
+    return c
+
 class Results():
     def __init__(self):
         # Set up a persistent connection to redis results
@@ -95,10 +120,11 @@ class Results():
         for k in self.r.scan_iter(match=ts_pfx+'*'):
             v = self.r.get(k).decode('utf-8')
             idx = k.decode('utf-8') [len(ts_pfx):]                      # strip the app prefix
-            ascTime = timeStr(int(idx))
+            unixTime = (int(idx) // 60) * 60                            # round it to per-minute resolution (so we get matches) - may be lossy
+            ascTime = timeStr(unixTime)
             t[ascTime] = int(v)                                         # build dict of (time / value) pairs
         res = []
-        for t, v in t.items():
+        for t, v in sorted(t.items()):
             res.append( {'time' : t, keyName: v } )
         return res
 
@@ -128,18 +154,10 @@ def status_json():
 @cross_origin()
 def json_ts_messages():
     shareRes = Results()
-    r = shareRes.getArrayResults(pfx='ts_', keyName='messages')
-    flaskRes = make_response(json.dumps(r))
-    flaskRes.headers['Content-Type'] = 'application/json'
-    return flaskRes
-
-# Time-series of number of active processes
-@app.route('/json/ts-processes', methods=['GET'])
-@cross_origin()
-def json_ts_processes():
-    shareRes = Results()
-    r = shareRes.getArrayResults(pfx='ps_', keyName='processes')
-    flaskRes = make_response(json.dumps(r))
+    m = shareRes.getArrayResults('ts_', 'messages')
+    p = shareRes.getArrayResults('ps_', 'processes')
+    c = list_merge(m, p, 'time', {'messages': 0}, {'processes': 0}) # merge two time-series together
+    flaskRes = make_response(json.dumps(c))
     flaskRes.headers['Content-Type'] = 'application/json'
     return flaskRes
 
