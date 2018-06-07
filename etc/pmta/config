@@ -21,8 +21,8 @@ smtp-server-tls-certificate  /var/lib/pmta/smtp-server-certificate.pem
 # Blackhole settings.
 # Rejects (4xx/5xx) or silently accepts and blachholes traffic on this IP
 #
-total-max-smtp-in 400
-total-max-file 100
+total-max-smtp-in 100
+total-max-file 100                                      # number of file threads writing
 
 dummy-smtp-has-chunking yes
 dummy-smtp-has-pipelining yes
