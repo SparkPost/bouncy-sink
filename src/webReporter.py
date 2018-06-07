@@ -58,9 +58,9 @@ class Results():
         res = self.r.get(self.rkeyPrefix + k)
         return res
 
-    # returns True if data written back to Redis OK.  d is a dict of key-value pairs to write
-    def setKey(self, k, v):
-        ok = self.r.set(self.rkeyPrefix + k, v)
+    # returns True if data written back to Redis OK. v is a value to write, optional keyword args are passed on down
+    def setKey(self, k, v, **kwargs):
+        ok = self.r.set(self.rkeyPrefix + k, v, **kwargs)
         return ok
 
     # collect basic metrics, i.e. started_running, and any keys prefixed int_

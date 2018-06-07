@@ -12,6 +12,7 @@ from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
 from webReporter import Results, timeStr
+from urllib.parse import urlparse
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
@@ -253,9 +254,18 @@ class PersistentSession():
         return len(self.svec)
 
 # Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
-def isSparkPostTrackingEndpoint(s, url):
-    r = s.options(url, allow_redirects=False, timeout=5)
-    return r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
+def isSparkPostTrackingEndpoint(s, url, shareRes):
+    scheme, netloc, _, _, _, _ = urlparse(url)
+    baseurl = scheme + '://' + netloc
+    # optimisation - check if we already know this is SparkPost or not
+    known = shareRes.getKey(baseurl)
+    if known:
+        return (b'True' == known)                           # response is always a bytestr
+    else:
+        r = s.options(url, allow_redirects=False, timeout=5)
+        isSparky = r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
+        ok = shareRes.setKey(baseurl, isSparky, ex=3600)    # mark this as known, but with an expiry time
+        return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url):
@@ -272,8 +282,8 @@ class MyHTMLOpenParser(HTMLParser):
         if tag == 'img':
             for attrName, attrValue in attrs:
                 if attrName == 'src':
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue):     # attrValue = url
-                        touchEndPoint(self.requestSession, attrValue)                   # "open"
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes):  # attrValue = url
+                        touchEndPoint(self.requestSession, attrValue)                               # "open"
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
 
@@ -288,8 +298,8 @@ class MyHTMLClickParser(HTMLParser):
         if tag == 'a':
             for attrName, attrValue in attrs:
                 if attrName == 'href':
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue):     # attrValue = url
-                        touchEndPoint(self.requestSession, attrValue)                   # "click"
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes):  # attrValue = url
+                        touchEndPoint(self.requestSession, attrValue)                               # "click"
                     else:
                         self.shareRes.incrementKey('click_url_not_sparkpost')
 
