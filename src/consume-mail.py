@@ -352,7 +352,7 @@ def startConsumeFiles(cfg, fLen):
         ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
 
-    shareRes.incrementKey('processes')                              # meter number of concurrent processes running
+    shareRes.incrementKey('processes')                              # atomically change number of concurrent processes running
     p = shareRes.getKey_int('processes')
     shareRes.setPSTimeSeries(str(int(startTime)), p)
     p_max = shareRes.getKey_int('processes_max')
@@ -363,16 +363,16 @@ def startConsumeFiles(cfg, fLen):
     if pLimitReached:
         logger.info('** Already {} processes running - will skip'.format(p))
     else:
-        logger.info('** Process {} starting - consuming {} mail file(s)'.format(p, fLen))
-    return shareRes, logger, startTime, pLimitReached
+        logger.info('** Process {} starting: consuming {} mail file(s)'.format(p, fLen))
+    return shareRes, logger, startTime, p, pLimitReached
 
-def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
+def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped, this_p):
     endTime = time.time()
     runTime = endTime - startTime
     runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
-    logger.info('** Finishing:run time(s)={0:.3f},done {1},skipped {2},done rate={3:.3f}/s'.format(runTime, countDone,
-        countSkipped, runRate))
-    shareRes.decrementKey('processes')
+    logger.info('** Process {} finishing: run time(s)={:.3f},done {},skipped {},done rate={:.3f}/s'.format(this_p,
+        runTime, countDone, countSkipped, runRate))
+    shareRes.decrementKey('processes')                              # atomically change number of concurrent processes running
     v = shareRes.getPSTimeSeries(str(int(endTime)))
     if not v:
         p = shareRes.getKey_int('processes')                        # record the finish, only if another hasn't started in this minute
@@ -479,7 +479,7 @@ def getBounceProbabilities(cfg, logger):
 
 # Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
-    shareRes, logger, startTime, pLimitReached = startConsumeFiles(cfg, len(fnameList))
+    shareRes, logger, startTime, this_p, pLimitReached = startConsumeFiles(cfg, len(fnameList))
     probs = getBounceProbabilities(cfg, logger)
     if probs:
         countDone = 0
@@ -496,7 +496,7 @@ def consumeFiles(fnameList, cfg):
                 except Exception as e:                              # catch any exceptions, keep going
                     logger.error(str(e))
                     countSkipped += 1
-    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
+    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped, this_p)
 
 # -----------------------------------------------------------------------------
 # Main code
