@@ -33,16 +33,26 @@ def list_of_dicts_merge(m, p, key, default_m, default_p):
     mi = 0
     pi = 0
     while mi<len(m) or pi<len(p):
-        if m[mi][key] < p[pi][key]:
-            c.append(dict_merge(m[mi], default_p))
+        this_m = m[mi] if mi<len(m) else None
+        this_p = p[pi] if pi<len(p) else None
+        if not this_p:                                          # exhausted p, so keep taking from m
+            c.append(dict_merge(this_m, default_p))
             mi += 1
-        elif m[mi][key] > p[pi][key]:
-            c.append(dict_merge(default_m, p[pi]))
+        elif not this_m:
+            c.append(dict_merge(default_m, this_p))             # exhausted m, so keep taking from p
             pi += 1
         else:
-            c.append(dict_merge(m[mi], p[pi]))                  # coincides
-            mi += 1
-            pi += 1
+            assert this_m and this_p
+            if this_m[key] < this_p[key]:
+                c.append(dict_merge(this_m, default_p))         # take from m
+                mi += 1
+            elif this_m[key] > this_p[key]:
+                c.append(dict_merge(default_m, this_p))         # take from p
+                pi += 1
+            else:
+                c.append(dict_merge(this_m, this_p))            # coincident key - take from both
+                mi += 1
+                pi += 1
     return c
 
 class Results():
