@@ -4,6 +4,8 @@
 
 # Bouncy Sink for SparkPost traffic
 
+[![Build Status](https://travis-ci.org/SparkPost/bouncy-sink.svg?branch=master)](https://travis-ci.org/SparkPost/bouncy-sink)
+
 The Bouncy Sink is a place where you can send your test email to. It simulates some aspects of real-world
 email user and ISP behaviour, such as in-band and out-of-band [bounces](https://www.sparkpost.com/blog/wild-west-bounce-codes-deliverability/),
 [FBLs](https://www.sparkpost.com/blog/why-feedback-loops-matter/), [opens and clicks](https://www.sparkpost.com/blog/email-user-engagement-metrics/).
