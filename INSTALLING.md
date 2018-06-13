@@ -67,7 +67,7 @@ pip install --upgrade pip
 
 Get libraries:
 ```
-pip install gunicorn redis flask dnspython 
+pip install redis gunicorn flask flask_cors dnspython 
 ```
 
 Get redis - see https://redis.io/topics/quickstart and https://unix.stackexchange.com/a/108311
