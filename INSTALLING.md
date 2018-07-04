@@ -99,3 +99,7 @@ Set up crontab to run script. The easiest way to do this is `crontab -e` then pa
 
 ## Gunicorn web server
 
+The script `starting-gun.sh` launches Gunicorn in daemon mode. You can run this interactively, or use `/etc/rc.local` to start
+on boot.
+
+Gunicorn access logfile is in `/var/log/gunicorn.log`.
