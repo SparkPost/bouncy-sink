@@ -34,15 +34,14 @@ div.chart { width: 800px; height: 400px; }
             var data = new google.visualization.DataTable();
             data.addColumn('date', 'Date');
             data.addColumn('number', 'Messages per minute');
-            data.addColumn('number', 'Processes');
             var chart = new google.visualization.AnnotationChart(document.getElementById('chart_div'));
 
             console.log(ps[0]);
 
             for (i = 0; i < ps.length; i++) {
-                data.addRow( [new Date(ps[i].time), ps[i].messages, ps[i].processes] );
+                data.addRow( [new Date(ps[i].time), ps[i].messages] );
             }
-            chart.draw(data, {displayAnnotations: false, scaleColumns: [0,1], scaleType: 'allmaximized' });
+            chart.draw(data, {displayAnnotations: false, scaleType: 'allmaximized' });
             console.log(data);
         })
         .catch(function (err) {
@@ -61,11 +60,6 @@ div.chart { width: 800px; height: 400px; }
 
 <h2>Performance</h2>
 <div id='chart_div' class='chart'></div>
-
-<table>
-    <tr><td class="descr">consume-mail processes (current)</td> <td>{{processes}}</td></tr>
-    <tr><td class="descr">consume-mail processes (max)</td> <td>{{processes_max}}</td></tr>
-</table>
 
 <h2>Responses from sink script</h2>
 <table>

@@ -20,41 +20,6 @@ def timeStr(t):
     utc = datetime.fromtimestamp(t, timezone.utc)
     return datetime.isoformat(utc, sep='T', timespec='seconds')
 
-# functions to merge two overlapping lists of dicts
-def dict_merge(d1, d2):
-    merge = d1.copy()
-    merge.update(d2)
-    return merge
-
-def list_of_dicts_merge(m, p, key, default_m, default_p):
-    assert sorted(m, key=lambda x: x[key]) == m
-    assert sorted(p, key=lambda x: x[key]) == p
-    c = []
-    mi = 0
-    pi = 0
-    while mi<len(m) or pi<len(p):
-        this_m = m[mi] if mi<len(m) else None
-        this_p = p[pi] if pi<len(p) else None
-        if not this_p:                                          # exhausted p, so keep taking from m
-            c.append(dict_merge(this_m, default_p))
-            mi += 1
-        elif not this_m:
-            c.append(dict_merge(default_m, this_p))             # exhausted m, so keep taking from p
-            pi += 1
-        else:
-            assert this_m and this_p
-            if this_m[key] < this_p[key]:
-                c.append(dict_merge(this_m, default_p))         # take from m
-                mi += 1
-            elif this_m[key] > this_p[key]:
-                c.append(dict_merge(default_m, this_p))         # take from p
-                pi += 1
-            else:
-                c.append(dict_merge(this_m, this_p))            # coincident key - take from both
-                mi += 1
-                pi += 1
-    return c
-
 class Results():
     def __init__(self):
         # Set up a persistent connection to redis results
@@ -109,17 +74,6 @@ class Results():
     def incrementTimeSeries(self, k):
         self.r.incr(self.rkeyPrefix + 'ts_' + k)
 
-    def setPSTimeSeries(self, k, v):
-        self.r.set(self.rkeyPrefix + 'ps_' + k, v)
-
-    def getPSTimeSeries(self, k):                                       # return None if invalid or doesn't exist
-        v = self.r.get(self.rkeyPrefix + 'ps_' + k)
-        if v:
-            v2 = v.decode('utf-8')
-            return int(v2) if v2.isnumeric() else None
-        else:
-            return None
-
     def delTimeSeriesOlderThan(self, t):
         for i in ['ts_*', 'ps_*']:
             for k in self.r.scan_iter(match=self.rkeyPrefix + i):
@@ -167,9 +121,7 @@ def status_json():
 def json_ts_messages():
     shareRes = Results()
     m = shareRes.getArrayResults('ts_', 'messages')
-    p = shareRes.getArrayResults('ps_', 'processes')
-    c = list_of_dicts_merge(m, p, 'time', {'messages': 0}, {'processes': 0}) # merge two time-series together
-    flaskRes = make_response(json.dumps(c))
+    flaskRes = make_response(json.dumps(m))
     flaskRes.headers['Content-Type'] = 'application/json'
     return flaskRes
 
