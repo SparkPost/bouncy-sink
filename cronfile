@@ -9,4 +9,4 @@
 #
 # This executes the script every 1 minute
 
-*/1 * * * * cd ~/bouncy-sink; sudo src/consume-mail.py -d /var/spool/mail/inbound/ >/dev/null 2>&1
+@reboot cd ~/bouncy-sink; ./starting-gun.sh; sudo src/consume-mail.py /var/spool/mail/inbound/ -f >/dev/null 2>&1

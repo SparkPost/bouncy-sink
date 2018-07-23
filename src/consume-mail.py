@@ -236,14 +236,14 @@ def isSparkPostTrackingEndpoint(s, url, shareRes):
     if known:
         return (b'True' == known)                           # response is always a bytestr
     else:
-        r = s.options(url, allow_redirects=False, timeout=5)
+        r = s.options(url, allow_redirects=False, timeout=30)
         isSparky = r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
         ok = shareRes.setKey(baseurl, isSparky, ex=3600)    # mark this as known, but with an expiry time
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url):
-    r = s.get(url, allow_redirects=False, timeout=5, stream=True)
+    r = s.get(url, allow_redirects=False, timeout=30, stream=True)
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
