@@ -313,10 +313,12 @@ def startConsumeFiles(cfg, fLen):
     # Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
     logfile = cfg.get('Logfile', baseProgName() + '.log')
     logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
-    # Need to invoke basicConfig to ensure thread safety - see https://docs.python.org/3/howto/logging-cookbook.html#logging-from-multiple-threads
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
+    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
     logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
     fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
+    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
+    fh.setFormatter(formatter)
     logger.addHandler(fh)
 
     shareRes = Results()                                            # class for sharing summary results
@@ -326,8 +328,9 @@ def startConsumeFiles(cfg, fLen):
         st = timeStr(startTime)
         ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
-    logger.info('** Process starting: consuming {} mail file(s)'.format(fLen))
-    return shareRes, logger, startTime
+    maxThreads = cfg.getint('Max_Threads', 16)
+    logger.info('** Process starting: consuming {} mail file(s) with {} threads'.format(fLen, maxThreads))
+    return shareRes, logger, startTime, maxThreads
 
 def stopConsumeFiles(logger, shareRes, startTime, countDone):
     endTime = time.time()
@@ -438,11 +441,10 @@ def getBounceProbabilities(cfg, logger):
 
 def consumeFiles(fnameList, cfg):
     if True:
-        shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
+        shareRes, logger, startTime, maxThreads = startConsumeFiles(cfg, len(fnameList))
         probs = getBounceProbabilities(cfg, logger)
         if probs:
             countDone = 0
-            maxThreads = cfg.getint('Max_Threads', 16)
             thCount = 0
             th = [None] * maxThreads
             thResults = [None] * maxThreads
@@ -482,21 +484,22 @@ parser = argparse.ArgumentParser(description='Consume inbound mails, generating 
 parser.add_argument('directory', type=str, help='directory to ingest .msg files, process and delete them', )
 parser.add_argument('-f', action='store_true', help='Keep looking for new files forever (like tail -f does)')
 args = parser.parse_args()
-
-config = configparser.ConfigParser()
-config.read_file(open(configFileName()))
-cfg = config['DEFAULT']
-
 if args.directory:
     if args.f:
         # Process the inbound directory forever
         while True:
             fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
             if fnameList:
+                config = configparser.ConfigParser()
+                config.read_file(open(configFileName()))
+                cfg = config['DEFAULT']
                 consumeFiles(fnameList, cfg)
             time.sleep(5)
     else:
         # Just process once
         fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
         if fnameList:
+            config = configparser.ConfigParser()
+            config.read_file(open(configFileName()))
+            cfg = config['DEFAULT']
             consumeFiles(fnameList, cfg)

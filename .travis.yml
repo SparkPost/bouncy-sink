@@ -11,7 +11,7 @@ install:
 services:
   - redis-server
 script:
-  - pipenv run src/consume-mail.py -d test_inbound
+  - pipenv run src/consume-mail.py travis_test_inbound
   - cat consume-mail.log
 
 branches:
