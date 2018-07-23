@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random
+import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, threading
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
@@ -19,18 +19,6 @@ def baseProgName():
 
 def configFileName():
     return os.path.splitext(baseProgName())[0] + '.ini'
-
-def printHelp():
-    print('\nNAME')
-    print('   ' + baseProgName() + ' -d dir')
-    print('   Consume inbound mails, generating opens, clicks, OOBs and FBLs\n')
-    print('   Config file {} for must be present in current directory'.format(configFileName()))
-    print('')
-    print('Parameters')
-    print('    -d directory - look for *.msg files, ingest them, renaming to *.old')
-    print('')
-    print('Output')
-    print('    logfile of actions taken created')
 
 def xstr(s):
     return '' if s is None else str(s)
@@ -239,20 +227,6 @@ def oobGen(mail, shareRes):
 # Open and Click handling
 # -----------------------------------------------------------------------------
 
-# Class holding persistent requests session IDs
-class PersistentSession():
-    def __init__(self, Nthreads):
-        # Set up our connection pool
-        self.svec = [None] * Nthreads
-        for i in range(0, Nthreads):
-            self.svec[i] = requests.session()
-
-    def id(self, i):
-        return self.svec[i]
-
-    def size(self):
-        return len(self.svec)
-
 # Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
 def isSparkPostTrackingEndpoint(s, url, shareRes):
     scheme, netloc, _, _, _, _ = urlparse(url)
@@ -309,7 +283,8 @@ def openClickMail(mail, probs, shareRes):
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
-        htmlOpenParser = MyHTMLOpenParser(persist.id(0), shareRes)  # use persistent session for speed
+        s = requests.session()                              # use persistent session for speed
+        htmlOpenParser = MyHTMLOpenParser(s, shareRes)
         ll += 'Open'
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
@@ -318,7 +293,7 @@ def openClickMail(mail, probs, shareRes):
             ll += '_OpenAgain'
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
-            htmlClickParser = MyHTMLClickParser(persist.id(0), shareRes)
+            htmlClickParser = MyHTMLClickParser(s, shareRes)
             htmlClickParser.feed(body)
             ll += '_Click'
             shareRes.incrementKey('click')
@@ -332,16 +307,16 @@ def openClickMail(mail, probs, shareRes):
 # Record results for webReporter and in logfile
 # -----------------------------------------------------------------------------
 
+# start to consume files - set up logging, record start time (if first run)
 def startConsumeFiles(cfg, fLen):
     startTime = time.time()                                         # measure run time
-    # Log some info on mail that is processed
+    # Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
     logfile = cfg.get('Logfile', baseProgName() + '.log')
     logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
+    # Need to invoke basicConfig to ensure thread safety - see https://docs.python.org/3/howto/logging-cookbook.html#logging-from-multiple-threads
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
     fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
-    formatter = logging.Formatter('%(asctime)s,%(name)s,%(thread)d,%(levelname)s,%(message)s')
-    fh.setFormatter(formatter)
     logger.addHandler(fh)
 
     shareRes = Results()                                            # class for sharing summary results
@@ -351,32 +326,15 @@ def startConsumeFiles(cfg, fLen):
         st = timeStr(startTime)
         ok = shareRes.setKey(k, st)
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
+    logger.info('** Process starting: consuming {} mail file(s)'.format(fLen))
+    return shareRes, logger, startTime
 
-    shareRes.incrementKey('processes')                              # atomically change number of concurrent processes running
-    p = shareRes.getKey_int('processes')
-    shareRes.setPSTimeSeries(str(int(startTime)), p)
-    p_max = shareRes.getKey_int('processes_max')
-    if p > p_max:
-        shareRes.setKey_int('processes_max', p)
-    pLimit = cfg.getint('Process_Limit', 100)
-    pLimitReached = p >= pLimit
-    if pLimitReached:
-        logger.info('** Already {} processes running - will skip'.format(p))
-    else:
-        logger.info('** Process {} starting: consuming {} mail file(s)'.format(p, fLen))
-    return shareRes, logger, startTime, p, pLimitReached
-
-def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped, this_p):
+def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
     endTime = time.time()
     runTime = endTime - startTime
     runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
-    logger.info('** Process {} finishing: run time(s)={:.3f},done {},skipped {},done rate={:.3f}/s'.format(this_p,
-        runTime, countDone, countSkipped, runRate))
-    shareRes.decrementKey('processes')                              # atomically change number of concurrent processes running
-    v = shareRes.getPSTimeSeries(str(int(endTime)))
-    if not v:
-        p = shareRes.getKey_int('processes')                        # record the finish, only if another hasn't started in this minute
-        shareRes.setPSTimeSeries(str(int(endTime)), p)
+    logger.info('** Process finishing: run time(s)={:.3f},done {},skipped {},done rate={:.3f}/s'.format(runTime, countDone, countSkipped, runRate))
+    #TODO: make amount of history configurable, and purge only when e.g. hour rolls over rather than every run
     history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
     shareRes.delTimeSeriesOlderThan(int(startTime) - history)
 
@@ -477,46 +435,61 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-# Logging now rotates at midnight (as per the machine's locale)
 def consumeFiles(fnameList, cfg):
-    shareRes, logger, startTime, this_p, pLimitReached = startConsumeFiles(cfg, len(fnameList))
+    shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
     probs = getBounceProbabilities(cfg, logger)
     if probs:
         countDone = 0
         countSkipped = 0
-        if not pLimitReached:
-            for fname in fnameList:
-                try:
-                    if os.path.isfile(fname):
-                        with open(fname) as fIn:
-                            os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
-                            msg = email.message_from_file(fIn, policy=policy.default)
-                            processMail(msg, fname, probs, logger, shareRes)
-                            countDone += 1
-                except Exception as e:                              # catch any exceptions, keep going
-                    logger.error(str(e))
-                    countSkipped += 1
-    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped, this_p)
+        th = []                                                 # accumulate thread info here
+        maxThreads = cfg.getint('Max_Threads', 16)
+        for fname in fnameList:
+            try:
+                if os.path.isfile(fname):
+                    with open(fname) as fIn:
+                        os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
+                        msg = email.message_from_file(fIn, policy=policy.default)
+                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, logger, shareRes))
+                        th.append(thisThread)
+                        thisThread.start()                      # launch concurrent process
+                        if len(th) > maxThreads:
+                            for tj in th:
+                                tj.join(timeout=120)            # for safety in case a thread hangs, set a timeout
+                                countDone += 1
+                            th = []
+            except Exception as e:                              # catch any exceptions, keep going
+                logger.error(str(e))
+                countSkipped += 1
+        # check if any threads to gather back in
+        for tj in th:
+            tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
+            countDone += 1
+
+    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
 
 # -----------------------------------------------------------------------------
 # Main code
 # -----------------------------------------------------------------------------
-# Take mail input depending on command-line options:
-# -f        file        (single file)
-# -d        directory   (read process and delete any file with extension .msg)
-# (blank)   stdin       (e.g. for pipe input)
+
+parser = argparse.ArgumentParser(description='Consume inbound mails, generating opens, clicks, OOBs and FBLs. Config file {} must be present in current directory.'.format(configFileName()))
+parser.add_argument('directory', type=str, help='directory to ingest .msg files, process and delete them', )
+parser.add_argument('-f', action='store_true', help='Keep looking for new files forever (like tail -f does)')
+args = parser.parse_args()
 
 config = configparser.ConfigParser()
 config.read_file(open(configFileName()))
 cfg = config['DEFAULT']
-persist = PersistentSession(1)                                      # hold a persistent session (global)
 
-if len(sys.argv) >= 3:
-    if sys.argv[1] == '-d':
-        dir = sys.argv[2].rstrip('/')                               # strip trailing / if present
-        fnameList = glob.glob(os.path.join(dir, '*.msg'))
-        consumeFiles(fnameList, cfg)
+if args.directory:
+    if args.f:
+        # Process the inbound directory forever
+        while True:
+            fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
+            if fnameList:
+                consumeFiles(fnameList, cfg)
+            time.sleep(5)
     else:
-        printHelp()
-else:
-    printHelp()
+        # Just process once
+        fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
+        if fnameList:
+            consumeFiles(fnameList, cfg)

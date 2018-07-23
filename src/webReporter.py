@@ -73,9 +73,13 @@ class Results():
         ok = self.r.set(self.rkeyPrefix + k, v, **kwargs)
         return ok
 
-    # collect basic metrics, i.e. started_running, and any keys prefixed int_
+    # collect basic metrics, i.e. started_running, and any keys prefixed int_.  Provide default value for startedRunning
     def getMatchingResults(self):
-        res = {'startedRunning': self.getKey('startedRunning').decode('utf-8') }
+        stR = self.getKey('startedRunning')
+        if stR:
+            res = {'startedRunning': stR.decode('utf-8') }
+        else:
+            res = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}  # default data
         int_pfx = self.rkeyPrefix + 'int_'
         for k in self.r.scan_iter(match=int_pfx+'*'):
             v = self.r.get(k).decode('utf-8')
@@ -144,8 +148,6 @@ class Results():
 def status_html():
     shareRes = Results()                                            # class for sharing summary results
     r = shareRes.getMatchingResults()
-    if not r:
-        r = {'startedRunning': 'Not yet - waiting for scheduled running to begin'}       # default data
     # pass in merged dict as named params to template substitutions
     res = render_template('index.html', **r, thisUrl=request.url)
     return res
