@@ -92,14 +92,13 @@ redis-cli ping
 
 Run the Python script manually using 
 ```
-sudo src/consume-mail.py -d /var/spool/mail/inbound/
+sudo src/consume-mail.py /var/spool/mail/inbound/
 ```
 
 Set up crontab to run script. The easiest way to do this is `crontab -e` then paste in the contents of `cronfile` from the project.
 
-## Gunicorn web server
+The crontab launches gunicorn web server and the script in "forever" mode.
 
-The script `starting-gun.sh` launches Gunicorn in daemon mode. You can run this interactively, or use `/etc/rc.local` to start
-on boot.
-
+## Gunicorn
+Gunicorn serves web pages on the port specificed in cronfile
 Gunicorn access logfile is in `/var/log/gunicorn.log`.

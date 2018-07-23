@@ -329,11 +329,11 @@ def startConsumeFiles(cfg, fLen):
     logger.info('** Process starting: consuming {} mail file(s)'.format(fLen))
     return shareRes, logger, startTime
 
-def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
+def stopConsumeFiles(logger, shareRes, startTime, countDone):
     endTime = time.time()
     runTime = endTime - startTime
     runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
-    logger.info('** Process finishing: run time(s)={:.3f},done {},skipped {},done rate={:.3f}/s'.format(runTime, countDone, countSkipped, runRate))
+    logger.info('** Process finishing: run time(s)={:.3f},done {},done rate={:.3f}/s'.format(runTime, countDone, runRate))
     #TODO: make amount of history configurable, and purge only when e.g. hour rolls over rather than every run
     history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
     shareRes.delTimeSeriesOlderThan(int(startTime) - history)
@@ -342,10 +342,11 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped):
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
 # If special subdomains used, these override the model, providing SPF check has passed.
-# Actions taken are logged.
+# Actions taken are recorded in a string which is passed back for logging, via clumsy
+# resArray/resIdx as per https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, logger, shareRes):
+def processMail(mail, fname, probs, logger, shareRes, resArray, resIdx):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     shareRes.incrementKey('total_messages')
@@ -388,7 +389,7 @@ def processMail(mail, fname, probs, logger, shareRes):
     else:
         logline += ',!DKIM fail:' + xstr(auth)
         shareRes.incrementKey('fail_dkim')
-    logger.info(logline)
+    resArray[resIdx] = logline
 
 
 # -----------------------------------------------------------------------------
@@ -436,36 +437,42 @@ def getBounceProbabilities(cfg, logger):
         return None
 
 def consumeFiles(fnameList, cfg):
-    shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
-    probs = getBounceProbabilities(cfg, logger)
-    if probs:
-        countDone = 0
-        countSkipped = 0
-        th = []                                                 # accumulate thread info here
-        maxThreads = cfg.getint('Max_Threads', 16)
-        for fname in fnameList:
-            try:
+    if True:
+        shareRes, logger, startTime = startConsumeFiles(cfg, len(fnameList))
+        probs = getBounceProbabilities(cfg, logger)
+        if probs:
+            countDone = 0
+            maxThreads = cfg.getint('Max_Threads', 16)
+            thCount = 0
+            th = [None] * maxThreads
+            thResults = [None] * maxThreads
+            for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
                         os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                         msg = email.message_from_file(fIn, policy=policy.default)
-                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, logger, shareRes))
-                        th.append(thisThread)
+                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, logger, shareRes, thResults, thCount))
+                        th[thCount] = thisThread
                         thisThread.start()                      # launch concurrent process
-                        if len(th) > maxThreads:
-                            for tj in th:
-                                tj.join(timeout=120)            # for safety in case a thread hangs, set a timeout
-                                countDone += 1
-                            th = []
-            except Exception as e:                              # catch any exceptions, keep going
-                logger.error(str(e))
-                countSkipped += 1
-        # check if any threads to gather back in
-        for tj in th:
-            tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
-            countDone += 1
-
-    stopConsumeFiles(logger, shareRes, startTime, countDone, countSkipped)
+                        thCount += 1
+                        if thCount >= maxThreads:
+                            for i, tj in enumerate(th):
+                                if tj:
+                                    tj.join(timeout=120)            # for safety in case a thread hangs, set a timeout
+                                    logger.info(thResults[i])
+                                    th[i] = None
+                                    countDone += 1
+                            thCount = 0
+            # check any remaining threads to gather back in
+            for i, tj in enumerate(th):
+                if tj:
+                    tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
+                    logger.info(thResults[i])
+                    th[i] = None
+                    countDone += 1
+    #except Exception as e:                              # catch any exceptions, keep going
+    #    logger.error(str(e))
+    stopConsumeFiles(logger, shareRes, startTime, countDone)
 
 # -----------------------------------------------------------------------------
 # Main code
