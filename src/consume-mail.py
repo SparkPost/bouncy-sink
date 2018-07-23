@@ -308,19 +308,8 @@ def openClickMail(mail, probs, shareRes):
 # -----------------------------------------------------------------------------
 
 # start to consume files - set up logging, record start time (if first run)
-def startConsumeFiles(cfg, fLen):
+def startConsumeFiles(logger, cfg, fLen):
     startTime = time.time()                                         # measure run time
-    # Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
-    logfile = cfg.get('Logfile', baseProgName() + '.log')
-    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)      # default to 10 files
-    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
-    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
     shareRes = Results()                                            # class for sharing summary results
     k = 'startedRunning'
     res = shareRes.getKey(k)                                        # read back results from previous run (if any)
@@ -330,7 +319,7 @@ def startConsumeFiles(cfg, fLen):
         logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
     maxThreads = cfg.getint('Max_Threads', 16)
     logger.info('** Process starting: consuming {} mail file(s) with {} threads'.format(fLen, maxThreads))
-    return shareRes, logger, startTime, maxThreads
+    return shareRes, startTime, maxThreads
 
 def stopConsumeFiles(logger, shareRes, startTime, countDone):
     endTime = time.time()
@@ -349,7 +338,7 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone):
 # resArray/resIdx as per https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, logger, shareRes, resArray, resIdx):
+def processMail(mail, fname, probs, shareRes, resArray, resIdx):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     shareRes.incrementKey('total_messages')
@@ -439,9 +428,9 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-def consumeFiles(fnameList, cfg):
-    if True:
-        shareRes, logger, startTime, maxThreads = startConsumeFiles(cfg, len(fnameList))
+def consumeFiles(logger, fnameList, cfg):
+    try:
+        shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         probs = getBounceProbabilities(cfg, logger)
         if probs:
             countDone = 0
@@ -453,14 +442,14 @@ def consumeFiles(fnameList, cfg):
                     with open(fname) as fIn:
                         os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                         msg = email.message_from_file(fIn, policy=policy.default)
-                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, logger, shareRes, thResults, thCount))
+                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, shareRes, thResults, thCount))
                         th[thCount] = thisThread
                         thisThread.start()                      # launch concurrent process
                         thCount += 1
                         if thCount >= maxThreads:
                             for i, tj in enumerate(th):
                                 if tj:
-                                    tj.join(timeout=120)            # for safety in case a thread hangs, set a timeout
+                                    tj.join(timeout=120)        # for safety in case a thread hangs, set a timeout
                                     logger.info(thResults[i])
                                     th[i] = None
                                     countDone += 1
@@ -468,13 +457,26 @@ def consumeFiles(fnameList, cfg):
             # check any remaining threads to gather back in
             for i, tj in enumerate(th):
                 if tj:
-                    tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
+                    tj.join(timeout=120)                        # for safety in case a thread hangs, set a timeout
                     logger.info(thResults[i])
                     th[i] = None
                     countDone += 1
-    #except Exception as e:                              # catch any exceptions, keep going
-    #    logger.error(str(e))
+    except Exception as e:                                      # catch any exceptions, keep going
+        logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
+
+# Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
+def createLogger(cfg):
+    logfile = cfg.get('Logfile', baseProgName() + '.log')
+    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)  # default to 10 files
+    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
+    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    return logger
 
 # -----------------------------------------------------------------------------
 # Main code
@@ -484,22 +486,22 @@ parser = argparse.ArgumentParser(description='Consume inbound mails, generating 
 parser.add_argument('directory', type=str, help='directory to ingest .msg files, process and delete them', )
 parser.add_argument('-f', action='store_true', help='Keep looking for new files forever (like tail -f does)')
 args = parser.parse_args()
+
+config = configparser.ConfigParser()
+config.read_file(open(configFileName()))
+cfg = config['DEFAULT']
+logger = createLogger(cfg)
+
 if args.directory:
     if args.f:
         # Process the inbound directory forever
         while True:
             fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
             if fnameList:
-                config = configparser.ConfigParser()
-                config.read_file(open(configFileName()))
-                cfg = config['DEFAULT']
-                consumeFiles(fnameList, cfg)
+                consumeFiles(logger, fnameList, cfg)
             time.sleep(5)
     else:
         # Just process once
         fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
         if fnameList:
-            config = configparser.ConfigParser()
-            config.read_file(open(configFileName()))
-            cfg = config['DEFAULT']
-            consumeFiles(fnameList, cfg)
+            consumeFiles(logger, fnameList, cfg)
