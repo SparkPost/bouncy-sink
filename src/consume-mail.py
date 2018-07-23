@@ -450,17 +450,23 @@ def consumeFiles(logger, fnameList, cfg):
                             for i, tj in enumerate(th):
                                 if tj:
                                     tj.join(timeout=120)        # for safety in case a thread hangs, set a timeout
-                                    logger.info(thResults[i])
-                                    th[i] = None
-                                    countDone += 1
+                                    if tj.is_alive():
+                                        logger.error('Thread {} timed out'.format())
+                                    else:
+                                        logger.info(thResults[i])
+                                        countDone += 1
+                                th[i] = None
                             thCount = 0
             # check any remaining threads to gather back in
             for i, tj in enumerate(th):
                 if tj:
                     tj.join(timeout=120)                        # for safety in case a thread hangs, set a timeout
-                    logger.info(thResults[i])
+                    if tj.is_alive():
+                        logger.error('Thread {} timed out'.format())
+                    else:
+                        logger.info(thResults[i])
+                        countDone += 1
                     th[i] = None
-                    countDone += 1
     except Exception as e:                                      # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
