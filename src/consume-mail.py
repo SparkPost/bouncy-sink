@@ -278,12 +278,12 @@ class MyHTMLClickParser(HTMLParser):
                         self.shareRes.incrementKey('click_url_not_sparkpost')
 
 # open / open again / click / click again logic, as per conditional probabilities
-def openClickMail(mail, probs, shareRes):
+# takes a persistent requests session object
+def openClickMail(mail, probs, shareRes, s):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
-        s = requests.session()                              # use persistent session for speed
         htmlOpenParser = MyHTMLOpenParser(s, shareRes)
         ll += 'Open'
         shareRes.incrementKey('open')
@@ -336,9 +336,10 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone):
 # If special subdomains used, these override the model, providing SPF check has passed.
 # Actions taken are recorded in a string which is passed back for logging, via clumsy
 # resArray/resIdx as per https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
+# For efficiency, takes a pre-allocated http requests session for opens/clicks
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, shareRes, resArray, resIdx):
+def processMail(mail, fname, probs, shareRes, resArray, resIdx, session):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     shareRes.incrementKey('total_messages')
@@ -362,7 +363,7 @@ def processMail(mail, fname, probs, shareRes, resArray, resIdx):
                 logline += ',!Special ' + subd + ' failed SPF check'
                 shareRes.incrementKey('fail_spf')
         elif subd == 'openclick':
-            logline += ',' + openClickMail(mail, probs, shareRes)       # doesn't need SPF pass
+            logline += ',' + openClickMail(mail, probs, shareRes, session)       # doesn't need SPF pass
         elif subd == 'accept':
             logline += ',Accept'
             shareRes.incrementKey('accept')
@@ -374,7 +375,7 @@ def processMail(mail, fname, probs, shareRes, resArray, resIdx):
             elif random.random() <= probs['FBL']:
                 logline += ',' + fblGen(mail, shareRes)
             elif random.random() <= probs['Open']:
-                logline += ',' + openClickMail(mail, probs, shareRes)
+                logline += ',' + openClickMail(mail, probs, shareRes, session)
             else:
                 logline += ',Accept'
                 shareRes.incrementKey('accept')
@@ -443,30 +444,36 @@ def gatherThreads(logger, th, thResults):
         thResults[i] = ''
     return c
 
+# return arrays of resources per thread
+def initThreads(maxThreads):
+    th = [None] * maxThreads
+    thResults = [None] * maxThreads
+    thSession = [None] * maxThreads
+    for i in range(maxThreads):
+        thSession[i] = requests.session()
+    return th, thResults, thSession
+
 def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
+        countDone = 0
         probs = getBounceProbabilities(cfg, logger)
         if probs:
-            countDone = 0
-            thCount = 0
-            th = [None] * maxThreads
-            thResults = [None] * maxThreads
-            #thSession = [requests.session()] * maxThreads
-
+            thIdx = 0
+            th, thResults, thSession = initThreads(maxThreads)
             for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
                         os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                         msg = email.message_from_file(fIn, policy=policy.default)
-                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, shareRes, thResults, thCount))
-                        th[thCount] = thisThread
+                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, shareRes, thResults, thIdx, thSession[thIdx]))
+                        th[thIdx] = thisThread
                         thisThread.start()                      # launch concurrent process
-                        thCount += 1
-                        if thCount >= maxThreads:
-                            countDone += gatherThreads(logger, th, thResults); thCount = 0
+                        thIdx += 1
+                        if thIdx >= maxThreads:
+                            countDone += gatherThreads(logger, th, thResults); thIdx = 0
             # check any remaining threads to gather back in
-            countDone += gatherThreads(logger, th, thResults); thCount = 0
+            countDone += gatherThreads(logger, th, thResults); thIdx = 0
     except Exception as e:                                      # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
