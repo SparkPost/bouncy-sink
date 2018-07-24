@@ -491,6 +491,13 @@ def createLogger(cfg):
     logger.addHandler(fh)
     return logger
 
+# Get the config from specified filename
+def readConfig(fname):
+    config = configparser.ConfigParser()
+    with open(fname) as f:
+        config.read_file(f)
+    return config['DEFAULT']
+
 # -----------------------------------------------------------------------------
 # Main code
 # -----------------------------------------------------------------------------
@@ -500,9 +507,7 @@ parser.add_argument('directory', type=str, help='directory to ingest .msg files,
 parser.add_argument('-f', action='store_true', help='Keep looking for new files forever (like tail -f does)')
 args = parser.parse_args()
 
-config = configparser.ConfigParser()
-config.read_file(open(configFileName()))
-cfg = config['DEFAULT']
+cfg = readConfig(configFileName())
 logger = createLogger(cfg)
 
 if args.directory:
@@ -513,6 +518,7 @@ if args.directory:
             if fnameList:
                 consumeFiles(logger, fnameList, cfg)
             time.sleep(5)
+            cfg = readConfig(configFileName())                  # get config again, in case it's changed
     else:
         # Just process once
         fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
