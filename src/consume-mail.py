@@ -428,6 +428,21 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
+# Wait for threads to complete, marking them as None when done
+def gatherThreads(logger, th, thResults):
+    c = 0
+    for i, tj in enumerate(th):
+        if tj:
+            tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
+            if tj.is_alive():
+                logger.error('Thread {} timed out'.format())
+            else:
+                logger.info(thResults[i])
+                c += 1
+        th[i] = None
+        thResults[i] = ''
+    return c
+
 def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
@@ -437,6 +452,8 @@ def consumeFiles(logger, fnameList, cfg):
             thCount = 0
             th = [None] * maxThreads
             thResults = [None] * maxThreads
+            #thSession = [requests.session()] * maxThreads
+
             for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
@@ -447,26 +464,9 @@ def consumeFiles(logger, fnameList, cfg):
                         thisThread.start()                      # launch concurrent process
                         thCount += 1
                         if thCount >= maxThreads:
-                            for i, tj in enumerate(th):
-                                if tj:
-                                    tj.join(timeout=120)        # for safety in case a thread hangs, set a timeout
-                                    if tj.is_alive():
-                                        logger.error('Thread {} timed out'.format())
-                                    else:
-                                        logger.info(thResults[i])
-                                        countDone += 1
-                                th[i] = None
-                            thCount = 0
+                            countDone += gatherThreads(logger, th, thResults); thCount = 0
             # check any remaining threads to gather back in
-            for i, tj in enumerate(th):
-                if tj:
-                    tj.join(timeout=120)                        # for safety in case a thread hangs, set a timeout
-                    if tj.is_alive():
-                        logger.error('Thread {} timed out'.format())
-                    else:
-                        logger.info(thResults[i])
-                        countDone += 1
-                    th[i] = None
+            countDone += gatherThreads(logger, th, thResults); thCount = 0
     except Exception as e:                                      # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
