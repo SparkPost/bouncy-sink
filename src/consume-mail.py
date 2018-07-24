@@ -340,53 +340,57 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone):
 # If special subdomains used, these override the model, providing SPF check has passed.
 # Actions taken are recorded in a string which is passed back for logging, via clumsy
 # resArray/resIdx as per https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
-# For efficiency, takes a pre-allocated http requests session for opens/clicks
+# For efficiency, takes a pre-allocated http requests session for opens/clicks, and can be multi-threaded
+# Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, shareRes, resQ, session):
-    # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
-    logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
-    shareRes.incrementKey('total_messages')
-    ts_min_resolution = int(time.time()//60)*60
-    shareRes.incrementTimeSeries(str(ts_min_resolution))
-    # Test that message was checked by PMTA and has valid DKIM signature
-    auth = mail['Authentication-Results']
-    if auth != None and 'dkim=pass' in auth:
-        # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
-        subd = mail['to'].split('@')[1].split('.')[0]
-        if subd == 'oob':
-            if 'spf=pass' in auth:
-                logline += ',' + oobGen(mail, shareRes)
-            else:
-                logline += ',!Special ' + subd + ' failed SPF check'
-                shareRes.incrementKey('fail_spf')
-        elif subd == 'fbl':
-            if 'spf=pass' in auth:
-                logline += ',' + fblGen(mail, shareRes)
-            else:
-                logline += ',!Special ' + subd + ' failed SPF check'
-                shareRes.incrementKey('fail_spf')
-        elif subd == 'openclick':
-            logline += ',' + openClickMail(mail, probs, shareRes, session)       # doesn't need SPF pass
-        elif subd == 'accept':
-            logline += ',Accept'
-            shareRes.incrementKey('accept')
-        else:
-            # Apply probabilistic model to all other domains
-            if random.random() <= probs['OOB']:
-                # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-                logline += ',' + oobGen(mail, shareRes)
-            elif random.random() <= probs['FBL']:
-                logline += ',' + fblGen(mail, shareRes)
-            elif random.random() <= probs['Open']:
-                logline += ',' + openClickMail(mail, probs, shareRes, session)
-            else:
+def processMail(fname, probs, shareRes, resQ, session):
+    with open(fname) as fIn:
+        os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
+        mail = email.message_from_file(fIn, policy=policy.default)
+        # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
+        logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
+        shareRes.incrementKey('total_messages')
+        ts_min_resolution = int(time.time()//60)*60
+        shareRes.incrementTimeSeries(str(ts_min_resolution))
+        # Test that message was checked by PMTA and has valid DKIM signature
+        auth = mail['Authentication-Results']
+        if auth != None and 'dkim=pass' in auth:
+            # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
+            subd = mail['to'].split('@')[1].split('.')[0]
+            if subd == 'oob':
+                if 'spf=pass' in auth:
+                    logline += ',' + oobGen(mail, shareRes)
+                else:
+                    logline += ',!Special ' + subd + ' failed SPF check'
+                    shareRes.incrementKey('fail_spf')
+            elif subd == 'fbl':
+                if 'spf=pass' in auth:
+                    logline += ',' + fblGen(mail, shareRes)
+                else:
+                    logline += ',!Special ' + subd + ' failed SPF check'
+                    shareRes.incrementKey('fail_spf')
+            elif subd == 'openclick':
+                logline += ',' + openClickMail(mail, probs, shareRes, session)       # doesn't need SPF pass
+            elif subd == 'accept':
                 logline += ',Accept'
                 shareRes.incrementKey('accept')
-    else:
-        logline += ',!DKIM fail:' + xstr(auth)
-        shareRes.incrementKey('fail_dkim')
-    resQ.put(logline)
+            else:
+                # Apply probabilistic model to all other domains
+                if random.random() <= probs['OOB']:
+                    # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
+                    logline += ',' + oobGen(mail, shareRes)
+                elif random.random() <= probs['FBL']:
+                    logline += ',' + fblGen(mail, shareRes)
+                elif random.random() <= probs['Open']:
+                    logline += ',' + openClickMail(mail, probs, shareRes, session)
+                else:
+                    logline += ',Accept'
+                    shareRes.incrementKey('accept')
+        else:
+            logline += ',!DKIM fail:' + xstr(auth)
+            shareRes.incrementKey('fail_dkim')
+        resQ.put(logline)
 
 
 # -----------------------------------------------------------------------------
@@ -447,7 +451,7 @@ def gatherThreads(logger, th, resQ):
                 c += 1
         th[i] = None
     while not resQ.empty():
-        logger.info(resQ.get())
+        logger.info(resQ.get())                             # write results to the logfile
     return c
 
 # return arrays of resources per thread
@@ -458,7 +462,7 @@ def initThreads(maxThreads):
         thSession[i] = requests.session()
     return th, thSession
 
-# consume a list of files, delegating the work to threads / processes
+# consume a list of files, delegating to worker threads / processes
 def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
@@ -470,18 +474,15 @@ def consumeFiles(logger, fnameList, cfg):
             resultsQ = multiprocessing.Queue()
             for fname in fnameList:
                 if os.path.isfile(fname):
-                    with open(fname) as fIn:
-                        os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
-                        msg = email.message_from_file(fIn, policy=policy.default)
-                        thisThread = multiprocessing.Process(target=processMail, args=(msg, fname, probs, shareRes, resultsQ, thSession[thIdx]))
-                        th[thIdx] = thisThread
-                        thisThread.start()                      # launch concurrent process
-                        thIdx += 1
-                        if thIdx >= maxThreads:
-                            countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
+                    thisThread = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx]))
+                    th[thIdx] = thisThread
+                    thisThread.start()                      # launch concurrent process
+                    thIdx += 1
+                    if thIdx >= maxThreads:
+                        countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
             # check any remaining threads to gather back in
             countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
-    except Exception as e:                                      # catch any exceptions, keep going
+    except Exception as e:                                  # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
 
