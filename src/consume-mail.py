@@ -7,7 +7,9 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, threading
+import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse
+import multiprocessing
+
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
 from email import policy
@@ -341,7 +343,7 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone):
 # For efficiency, takes a pre-allocated http requests session for opens/clicks
 # -----------------------------------------------------------------------------
 
-def processMail(mail, fname, probs, shareRes, resArray, resIdx, session):
+def processMail(mail, fname, probs, shareRes, resQ, session):
     # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
     logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
     shareRes.incrementKey('total_messages')
@@ -384,7 +386,7 @@ def processMail(mail, fname, probs, shareRes, resArray, resIdx, session):
     else:
         logline += ',!DKIM fail:' + xstr(auth)
         shareRes.incrementKey('fail_dkim')
-    resArray[resIdx] = logline
+    resQ.put(logline)
 
 
 # -----------------------------------------------------------------------------
@@ -432,8 +434,9 @@ def getBounceProbabilities(cfg, logger):
         return None
 
 gatherTimeout = 120
-# Wait for threads to complete, marking them as None when done
-def gatherThreads(logger, th, thResults):
+# Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
+# thread-safe and process-safe
+def gatherThreads(logger, th, resQ):
     c = 0
     for i, tj in enumerate(th):
         if tj:
@@ -441,21 +444,21 @@ def gatherThreads(logger, th, thResults):
             if tj.is_alive():
                 logger.error('Thread {} timed out'.format())
             else:
-                logger.info(thResults[i])
                 c += 1
         th[i] = None
-        thResults[i] = ''
+    while not resQ.empty():
+        logger.info(resQ.get())
     return c
 
 # return arrays of resources per thread
 def initThreads(maxThreads):
     th = [None] * maxThreads
-    thResults = [None] * maxThreads
     thSession = [None] * maxThreads
     for i in range(maxThreads):
         thSession[i] = requests.session()
-    return th, thResults, thSession
+    return th, thSession
 
+# consume a list of files, delegating the work to threads / processes
 def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
@@ -463,20 +466,21 @@ def consumeFiles(logger, fnameList, cfg):
         probs = getBounceProbabilities(cfg, logger)
         if probs:
             thIdx = 0
-            th, thResults, thSession = initThreads(maxThreads)
+            th, thSession = initThreads(maxThreads)
+            resultsQ = multiprocessing.Queue()
             for fname in fnameList:
                 if os.path.isfile(fname):
                     with open(fname) as fIn:
                         os.remove(fname)                        # OK to remove while open, contents destroyed once file handle closed
                         msg = email.message_from_file(fIn, policy=policy.default)
-                        thisThread = threading.Thread(target=processMail, args=(msg, fname, probs, shareRes, thResults, thIdx, thSession[thIdx]))
+                        thisThread = multiprocessing.Process(target=processMail, args=(msg, fname, probs, shareRes, resultsQ, thSession[thIdx]))
                         th[thIdx] = thisThread
                         thisThread.start()                      # launch concurrent process
                         thIdx += 1
                         if thIdx >= maxThreads:
-                            countDone += gatherThreads(logger, th, thResults); thIdx = 0
+                            countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
             # check any remaining threads to gather back in
-            countDone += gatherThreads(logger, th, thResults); thIdx = 0
+            countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
     except Exception as e:                                      # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
