@@ -265,7 +265,6 @@ class MyHTMLOpenParser(HTMLParser):
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
 
-
 class MyHTMLClickParser(HTMLParser):
     def __init__(self, s, shareRes, openClickTimeout):
         HTMLParser.__init__(self)
@@ -308,33 +307,6 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout):
                 ll += '_ClickAgain'
                 shareRes.incrementKey('click_again')
     return ll
-
-# -----------------------------------------------------------------------------
-# Record results for webReporter and in logfile
-# -----------------------------------------------------------------------------
-
-# start to consume files - set up logging, record start time (if first run)
-def startConsumeFiles(logger, cfg, fLen):
-    startTime = time.time()                                         # measure run time
-    shareRes = Results()                                            # class for sharing summary results
-    k = 'startedRunning'
-    res = shareRes.getKey(k)                                        # read back results from previous run (if any)
-    if not res:
-        st = timeStr(startTime)
-        ok = shareRes.setKey(k, st)
-        logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
-    maxThreads = cfg.getint('Max_Threads', 16)
-    logger.info('** Process starting: consuming {} mail file(s) with {} threads'.format(fLen, maxThreads))
-    return shareRes, startTime, maxThreads
-
-def stopConsumeFiles(logger, shareRes, startTime, countDone):
-    endTime = time.time()
-    runTime = endTime - startTime
-    runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
-    logger.info('** Process finishing: run time(s)={:.3f},done {},done rate={:.3f}/s'.format(runTime, countDone, runRate))
-    #TODO: make amount of history configurable, and purge only when e.g. hour rolls over rather than every run
-    history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
-    shareRes.delTimeSeriesOlderThan(int(startTime) - history)
 
 
 # -----------------------------------------------------------------------------
@@ -396,7 +368,115 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout):
 
 
 # -----------------------------------------------------------------------------
-# Set up probabilistic model for incoming mail
+# Consume emails using threads/processes
+# -----------------------------------------------------------------------------
+
+# start to consume files - set up logging, record start time (if first run)
+def startConsumeFiles(logger, cfg, fLen):
+    startTime = time.time()                                         # measure run time
+    shareRes = Results()                                            # class for sharing summary results
+    k = 'startedRunning'
+    res = shareRes.getKey(k)                                        # read back results from previous run (if any)
+    if not res:
+        st = timeStr(startTime)
+        ok = shareRes.setKey(k, st)
+        logger.info('** First run - set {} = {}, ok = {}'.format(k, st, ok))
+    maxThreads = cfg.getint('Max_Threads', 16)
+    logger.info('** Process starting: consuming {} mail file(s) with {} threads'.format(fLen, maxThreads))
+    return shareRes, startTime, maxThreads
+
+def stopConsumeFiles(logger, shareRes, startTime, countDone):
+    endTime = time.time()
+    runTime = endTime - startTime
+    runRate = (0 if runTime == 0 else countDone / runTime)          # Ensure no divide by zero
+    logger.info('** Process finishing: run time(s)={:.3f},done {},done rate={:.3f}/s'.format(runTime, countDone, runRate))
+    history = 10 * 24 * 60 * 60                                     # keep this much time-series history (seconds)
+    shareRes.delTimeSeriesOlderThan(int(startTime) - history)
+
+
+# return arrays of resources per thread
+def initThreads(maxThreads):
+    th = [None] * maxThreads
+    thSession = [None] * maxThreads
+    for i in range(maxThreads):
+        thSession[i] = requests.session()
+    return th, thSession
+
+# search for a free slot, with memory (so acts as round-robin)
+def findFreeThreadSlot(th, thIdx):
+    t = (thIdx+1) % len(th)
+    while True:
+        if th[t] == None:                       # empty slot
+            return t
+        elif not th[t].is_alive():              # thread just finished
+            th[t] = None
+            return t
+        else:                                   # keep searching
+            t = (t+1) % len(th)
+            if t == thIdx:
+                # already polled each slot once this call - so wait a while
+                time.sleep(0.1)
+
+# Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
+# thread-safe and process-safe
+def gatherThreads(logger, th, gatherTimeout):
+    for i, tj in enumerate(th):
+        if tj:
+            tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
+            if tj.is_alive():
+                logger.error('Thread {} timed out'.format())
+            th[i] = None
+
+# consume a list of files, delegating to worker threads / processes
+def consumeFiles(logger, fnameList, cfg):
+    try:
+        shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
+        countDone = 0
+        probs = getBounceProbabilities(cfg, logger)
+        openClickTimeout = cfg.getint("Open_Click_Timeout", 30)
+        gatherTimeout = cfg.getint("Gather_Timeout", 120)
+        if probs:
+            th, thSession = initThreads(maxThreads)
+            resultsQ = multiprocessing.Queue()
+            thIdx = 0                                       # round-robin slot
+            for fname in fnameList:
+                if os.path.isfile(fname):
+                    # check and get a free process space
+                    thIdx = findFreeThreadSlot(th, thIdx)
+                    th[thIdx] = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
+                    th[thIdx].start()                      # launch concurrent process
+                    countDone += 1
+                    emitLogs(resultsQ)
+            # check any remaining threads to gather back in
+            gatherThreads(logger, th, gatherTimeout)
+            emitLogs(resultsQ)
+    except Exception as e:                                  # catch any exceptions, keep going
+        logger.error(str(e))
+    stopConsumeFiles(logger, shareRes, startTime, countDone)
+
+# -----------------------------------------------------------------------------
+# Log handling
+# -----------------------------------------------------------------------------
+
+# Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
+def createLogger(cfg):
+    logfile = cfg.get('Logfile', baseProgName() + '.log')
+    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)  # default to 10 files
+    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
+    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    return logger
+
+def emitLogs(resQ):
+    while not resQ.empty():
+        logger.info(resQ.get())  # write results to the logfile
+
+# -----------------------------------------------------------------------------
+# Set up probabilistic model for incoming mail from config
 # -----------------------------------------------------------------------------
 
 # Set conditional probability in mutable dict P for event a given event b. https://en.wikipedia.org/wiki/Conditional_probability
@@ -439,89 +519,13 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-# return arrays of resources per thread
-def initThreads(maxThreads):
-    th = [None] * maxThreads
-    thSession = [None] * maxThreads
-    for i in range(maxThreads):
-        thSession[i] = requests.session()
-    return th, thSession
-
-# search for a free slot, with memory (so acts as round-robin)
-def findFreeThreadSlot(th, thIdx):
-    t = (thIdx+1) % len(th)
-    while True:
-        if th[t] == None:                       # empty slot
-            return t
-        elif not th[t].is_alive():              # thread just finished
-            th[t] = None
-            return t
-        else:                                   # keep searching
-            t = (t+1) % len(th)
-            if t == thIdx:
-                # already polled each slot once this call - so wait a while
-                time.sleep(0.1)
-
-# Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
-# thread-safe and process-safe
-def gatherThreads(logger, th, gatherTimeout):
-    for i, tj in enumerate(th):
-        if tj:
-            tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
-            if tj.is_alive():
-                logger.error('Thread {} timed out'.format())
-            th[i] = None
-
-def emitLogs(resQ):
-    while not resQ.empty():
-        logger.info(resQ.get())  # write results to the logfile
-
-# consume a list of files, delegating to worker threads / processes
-def consumeFiles(logger, fnameList, cfg):
-    try:
-        shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
-        countDone = 0
-        probs = getBounceProbabilities(cfg, logger)
-        openClickTimeout = cfg.getint("Open_Click_Timeout", 30)
-        gatherTimeout = cfg.getint("Gather_Timeout", 120)
-        if probs:
-            th, thSession = initThreads(maxThreads)
-            resultsQ = multiprocessing.Queue()
-            thIdx = 0                                       # round-robin slot
-            for fname in fnameList:
-                if os.path.isfile(fname):
-                    # check and get a free process space
-                    thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
-                    th[thIdx].start()                      # launch concurrent process
-                    countDone += 1
-                    emitLogs(resultsQ)
-            # check any remaining threads to gather back in
-            gatherThreads(logger, th, gatherTimeout)
-            emitLogs(resultsQ)
-    except Exception as e:                                  # catch any exceptions, keep going
-        logger.error(str(e))
-    stopConsumeFiles(logger, shareRes, startTime, countDone)
-
-# Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
-def createLogger(cfg):
-    logfile = cfg.get('Logfile', baseProgName() + '.log')
-    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)  # default to 10 files
-    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
-    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-    return logger
-
 # Get the config from specified filename
 def readConfig(fname):
     config = configparser.ConfigParser()
     with open(fname) as f:
         config.read_file(f)
     return config['DEFAULT']
+
 
 # -----------------------------------------------------------------------------
 # Main code

@@ -97,7 +97,8 @@ sudo src/consume-mail.py /var/spool/mail/inbound/
 
 Set up crontab to run script. The easiest way to do this is `crontab -e` then paste in the contents of `cronfile` from the project.
 
-The crontab launches gunicorn web server and the script in "forever" mode.
+The crontab launches gunicorn web server and the script in "forever" mode on reboot. To start it without rebooting, copy the line
+into an interactive shell.
 
 ## Gunicorn
 Gunicorn serves web pages on the port specificed in cronfile
