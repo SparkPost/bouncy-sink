@@ -227,6 +227,8 @@ def oobGen(mail, shareRes):
 # Open and Click handling
 # -----------------------------------------------------------------------------
 
+openClickTimeout = 10
+
 # Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
 def isSparkPostTrackingEndpoint(s, url, shareRes):
     scheme, netloc, _, _, _, _ = urlparse(url)
@@ -236,14 +238,14 @@ def isSparkPostTrackingEndpoint(s, url, shareRes):
     if known:
         return (b'True' == known)                           # response is always a bytestr
     else:
-        r = s.options(url, allow_redirects=False, timeout=30)
+        r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
         isSparky = r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
         ok = shareRes.setKey(baseurl, isSparky, ex=3600)    # mark this as known, but with an expiry time
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url):
-    r = s.get(url, allow_redirects=False, timeout=30, stream=True)
+    r = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True)
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
@@ -429,12 +431,13 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
+gatherTimeout = 120
 # Wait for threads to complete, marking them as None when done
 def gatherThreads(logger, th, thResults):
     c = 0
     for i, tj in enumerate(th):
         if tj:
-            tj.join(timeout=120)  # for safety in case a thread hangs, set a timeout
+            tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
             if tj.is_alive():
                 logger.error('Thread {} timed out'.format())
             else:
