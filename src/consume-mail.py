@@ -229,10 +229,8 @@ def oobGen(mail, shareRes):
 # Open and Click handling
 # -----------------------------------------------------------------------------
 
-openClickTimeout = 10
-
 # Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
-def isSparkPostTrackingEndpoint(s, url, shareRes):
+def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     scheme, netloc, _, _, _, _ = urlparse(url)
     baseurl = scheme + '://' + netloc
     # optimisation - check if we already know this is SparkPost or not
@@ -246,49 +244,53 @@ def isSparkPostTrackingEndpoint(s, url, shareRes):
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
-def touchEndPoint(s, url):
+def touchEndPoint(s, url, openClickTimeout):
     r = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True)
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
-    def __init__(self, s, shareRes):
+    def __init__(self, s, shareRes, openClickTimeout):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
+        self.openClickTimeout = openClickTimeout
 
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
             for attrName, attrValue in attrs:
                 if attrName == 'src':
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes):  # attrValue = url
-                        touchEndPoint(self.requestSession, attrValue)                               # "open"
+                    # attrValue = url
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
+                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout)
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
 
 
 class MyHTMLClickParser(HTMLParser):
-    def __init__(self, s, shareRes):
+    def __init__(self, s, shareRes, openClickTimeout):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
+        self.openClickTimeout = openClickTimeout
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
             for attrName, attrValue in attrs:
                 if attrName == 'href':
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes):  # attrValue = url
-                        touchEndPoint(self.requestSession, attrValue)                               # "click"
+                    # attrValue = url
+                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
+                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout)
                     else:
                         self.shareRes.incrementKey('click_url_not_sparkpost')
 
 # open / open again / click / click again logic, as per conditional probabilities
 # takes a persistent requests session object
-def openClickMail(mail, probs, shareRes, s):
+def openClickMail(mail, probs, shareRes, s, openClickTimeout):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
-        htmlOpenParser = MyHTMLOpenParser(s, shareRes)
+        htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout)
         ll += 'Open'
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
@@ -297,7 +299,7 @@ def openClickMail(mail, probs, shareRes, s):
             ll += '_OpenAgain'
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
-            htmlClickParser = MyHTMLClickParser(s, shareRes)
+            htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout)
             htmlClickParser.feed(body)
             ll += '_Click'
             shareRes.incrementKey('click')
@@ -344,7 +346,7 @@ def stopConsumeFiles(logger, shareRes, startTime, countDone):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout):
     with open(fname) as fIn:
         os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
         mail = email.message_from_file(fIn, policy=policy.default)
@@ -371,7 +373,7 @@ def processMail(fname, probs, shareRes, resQ, session):
                     logline += ',!Special ' + subd + ' failed SPF check'
                     shareRes.incrementKey('fail_spf')
             elif subd == 'openclick':
-                logline += ',' + openClickMail(mail, probs, shareRes, session)       # doesn't need SPF pass
+                logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout)       # doesn't need SPF pass
             elif subd == 'accept':
                 logline += ',Accept'
                 shareRes.incrementKey('accept')
@@ -383,7 +385,7 @@ def processMail(fname, probs, shareRes, resQ, session):
                 elif random.random() <= probs['FBL']:
                     logline += ',' + fblGen(mail, shareRes)
                 elif random.random() <= probs['Open']:
-                    logline += ',' + openClickMail(mail, probs, shareRes, session)
+                    logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout)
                 else:
                     logline += ',Accept'
                     shareRes.incrementKey('accept')
@@ -437,23 +439,6 @@ def getBounceProbabilities(cfg, logger):
         logger.error('Config file problem: '+str(e))
         return None
 
-gatherTimeout = 120
-# Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
-# thread-safe and process-safe
-def gatherThreads(logger, th, resQ):
-    c = 0
-    for i, tj in enumerate(th):
-        if tj:
-            tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
-            if tj.is_alive():
-                logger.error('Thread {} timed out'.format())
-            else:
-                c += 1
-        th[i] = None
-    while not resQ.empty():
-        logger.info(resQ.get())                             # write results to the logfile
-    return c
-
 # return arrays of resources per thread
 def initThreads(maxThreads):
     th = [None] * maxThreads
@@ -462,26 +447,58 @@ def initThreads(maxThreads):
         thSession[i] = requests.session()
     return th, thSession
 
+# search for a free slot, with memory (so acts as round-robin)
+def findFreeThreadSlot(th, thIdx):
+    t = (thIdx+1) % len(th)
+    while True:
+        if th[t] == None:                       # empty slot
+            return t
+        elif not th[t].is_alive():              # thread just finished
+            th[t] = None
+            return t
+        else:                                   # keep searching
+            t = (t+1) % len(th)
+            if t == thIdx:
+                # already polled each slot once this call - so wait a while
+                time.sleep(0.1)
+
+# Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
+# thread-safe and process-safe
+def gatherThreads(logger, th, gatherTimeout):
+    for i, tj in enumerate(th):
+        if tj:
+            tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
+            if tj.is_alive():
+                logger.error('Thread {} timed out'.format())
+            th[i] = None
+
+def emitLogs(resQ):
+    while not resQ.empty():
+        logger.info(resQ.get())  # write results to the logfile
+
 # consume a list of files, delegating to worker threads / processes
 def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         countDone = 0
         probs = getBounceProbabilities(cfg, logger)
+        openClickTimeout = cfg.getint("Open_Click_Timeout", 30)
+        gatherTimeout = cfg.getint("Gather_Timeout", 120)
         if probs:
-            thIdx = 0
             th, thSession = initThreads(maxThreads)
             resultsQ = multiprocessing.Queue()
+            thIdx = 0                                       # round-robin slot
             for fname in fnameList:
                 if os.path.isfile(fname):
-                    thisThread = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx]))
-                    th[thIdx] = thisThread
-                    thisThread.start()                      # launch concurrent process
-                    thIdx += 1
-                    if thIdx >= maxThreads:
-                        countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
+                    # check and get a free process space
+                    thIdx = findFreeThreadSlot(th, thIdx)
+                    th[thIdx] = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
+                    th[thIdx].start()                      # launch concurrent process
+                    countDone += 1
+                    emitLogs(resultsQ)
             # check any remaining threads to gather back in
-            countDone += gatherThreads(logger, th, resultsQ); thIdx = 0
+            gatherThreads(logger, th, gatherTimeout)
+            emitLogs(resultsQ)
     except Exception as e:                                  # catch any exceptions, keep going
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
