@@ -44,17 +44,8 @@ The `Upstream_Handled` variable is used to allow for the amount that's already h
 
 ## Behaviour under load
 
-The `consume-mail.py` script is OK with having a new process started while an existing process is running. In fact it's
-intended behaviour when under load. Each process will grab message files from the inbound directory. Due to the way Linux
-file handles work, we can open for reading, delete, and *then* read and process them. This minimises hazards caused by
-race conditions. At worst, a file might get removed by one process just as the other tries to remove it; you'll see the
-following in the log:
-
-```
-2018-05-15 00:06:29,854,consume-mail,139958136461120,ERROR,[Errno 2] No such file or directory: '/var/spool/mail/inbound/00056c335a61af49.msg'
-```
-This results in that particular mail getting processed twice instead of once, which might not be acceptable for your
-bank account, but is [_Mostly Harmless_](https://en.wikipedia.org/wiki/Mostly_Harmless) in the world of bouncy sinks.
+Python's  timed rotating logfile handler was found to be not process-safe (files get truncated at midnight if more than one process
+is running). So the app now runs one instance, started manually or once by crontab. The app creates multiple threads.
 
 ## Logfiles
 
@@ -73,14 +64,12 @@ The .ini file also sets how many days history to retain.
 Logfile shows
 - date/time
 - logging name 'consume-mail'
-- Thread ID
 - Level (=INFO mostly)
 - inbound filename
 - inbound mail `To:` address
 - inbound mail `From:` address
 - actions taken e.g. `Open, Click, OpenAgain, ClickAgain, OOB sent, FBL sent`
 
-You may see benign filesystem errors as noted in "Behaviour under load" above.
 Application-level errors are marked in the actions area, with prefix **`!`** for example
 `!FBL not sent, Return-Path not recognized as SparkPost`
 
@@ -94,19 +83,18 @@ If running the usual setup from crontab, you can skip this section.
 The script is fed a directory (where it looks for, processes, and deletes) files ending in `.msg`.
 
 ```
-$ src/consume-mail.py 
+$ src/consume-mail.py -h
+usage: consume-mail.py [-h] [-f] directory
 
-NAME
-   consume-mail.py -d dir
-   Consume inbound mails, generating opens, clicks, OOBs and FBLs
+Consume inbound mails, generating opens, clicks, OOBs and FBLs. Config file
+consume-mail.ini must be present in current directory.
 
-   Config file consume-mail.ini for must be present in current directory
+positional arguments:
+  directory   directory to ingest .msg files, process and delete them
 
-Parameters
-    -d directory - look for *.msg files, ingest them, renaming to *.old
-
-Output
-    logfile of actions taken created
+optional arguments:
+  -h, --help  show this help message and exit
+  -f          Keep looking for new files forever (like tail -f does)
 ```
 
 ## Script internals
@@ -124,9 +112,11 @@ ELB replaces the connecting IP address with its own, causing the check to always
 - FBL and OOB mail replies are sent directly back using SMTP (not using PMTA's queuing). That allows the SMTP response code errors to be logged, at the expense of the thread blocking. In practice this is not a
 problem with low percentages of FBL and OOBs
 - `getBounceProbabilities` and `checkSetCondProb` set up the conditional probabilites for the `processMail` decision tree.
-- `consumeFiles` chews file(s) over a single run, handling file reading and logging duties.
+- `consumeFiles` chews file(s) over a single run, handling file reading and logging duties. Each file is processed by launching
+`processMail` in separate threads to maximise throughput.
+- Because threads cannot directly return values back, each thread writes result strings to a `queue`. The master thread gets these and 
+emits lines to the logfile.
 
-The script can happily have many processes active (see Behaviour under load). 
 
 Performance on a Medium instance was essentially linear with up to 12 threads, and therefore can handle hundreds of inbound messages per second.
 
@@ -134,5 +124,3 @@ Performance on a Medium instance was essentially linear with up to 12 threads, a
 
 A specific domain to "in-band bounce 100% of traffic" is *not* provided, because (given current PMTA functionality) it would require a separate host & PMTA
 instance.
-
-The SMTP FBL and OOB responders could use multi-threading and (maybe) persistent sockets, but the SMTP library does not make it easy to wedge this in.
