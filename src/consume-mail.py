@@ -8,7 +8,8 @@
 #   pip3 install requests, dnspython
 #
 import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse
-import multiprocessing
+#import multiprocessing
+import threading, queue
 
 from html.parser import HTMLParser
 # workaround as per https://stackoverflow.com/questions/45124127/unable-to-extract-the-body-of-the-email-file-in-python
@@ -437,13 +438,13 @@ def consumeFiles(logger, fnameList, cfg):
         gatherTimeout = cfg.getint("Gather_Timeout", 120)
         if probs:
             th, thSession = initThreads(maxThreads)
-            resultsQ = multiprocessing.Queue()
+            resultsQ = queue.Queue()
             thIdx = 0                                       # round-robin slot
             for fname in fnameList:
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = multiprocessing.Process(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
