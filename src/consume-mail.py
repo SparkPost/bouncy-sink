@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse
+import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv
 #import multiprocessing
 import threading, queue
 
@@ -245,16 +245,17 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
-def touchEndPoint(s, url, openClickTimeout):
-    r = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True)
+def touchEndPoint(s, url, openClickTimeout, userAgent):
+    r = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True, headers={'User-Agent': userAgent})
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
-    def __init__(self, s, shareRes, openClickTimeout):
+    def __init__(self, s, shareRes, openClickTimeout, userAgent):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
         self.openClickTimeout = openClickTimeout
+        self.userAgent = userAgent
 
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
@@ -262,16 +263,17 @@ class MyHTMLOpenParser(HTMLParser):
                 if attrName == 'src':
                     # attrValue = url
                     if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
-                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout)
+                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
 
 class MyHTMLClickParser(HTMLParser):
-    def __init__(self, s, shareRes, openClickTimeout):
+    def __init__(self, s, shareRes, openClickTimeout, userAgent):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
         self.openClickTimeout = openClickTimeout
+        self.userAgent = userAgent
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
@@ -279,18 +281,18 @@ class MyHTMLClickParser(HTMLParser):
                 if attrName == 'href':
                     # attrValue = url
                     if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
-                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout)
+                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
                         self.shareRes.incrementKey('click_url_not_sparkpost')
 
 # open / open again / click / click again logic, as per conditional probabilities
 # takes a persistent requests session object
-def openClickMail(mail, probs, shareRes, s, openClickTimeout):
+def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
-        htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout)
+        htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent)
         ll += 'Open'
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
@@ -299,7 +301,7 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout):
             ll += '_OpenAgain'
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
-            htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout)
+            htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout, userAgent)
             htmlClickParser.feed(body)
             ll += '_Click'
             shareRes.incrementKey('click')
@@ -314,12 +316,11 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout):
 # Process a single mail file according to the probabilistic model & special subdomains
 # If special subdomains used, these override the model, providing SPF check has passed.
 # Actions taken are recorded in a string which is passed back for logging, via clumsy
-# resArray/resIdx as per https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
 # For efficiency, takes a pre-allocated http requests session for opens/clicks, and can be multi-threaded
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents):
     with open(fname) as fIn:
         os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
         mail = email.message_from_file(fIn, policy=policy.default)
@@ -346,7 +347,8 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout):
                     logline += ',!Special ' + subd + ' failed SPF check'
                     shareRes.incrementKey('fail_spf')
             elif subd == 'openclick':
-                logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout)       # doesn't need SPF pass
+                # doesn't need SPF pass
+                logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
             elif subd == 'accept':
                 logline += ',Accept'
                 shareRes.incrementKey('accept')
@@ -358,7 +360,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout):
                 elif random.random() <= probs['FBL']:
                     logline += ',' + fblGen(mail, shareRes)
                 elif random.random() <= probs['Open']:
-                    logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout)
+                    logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
                 else:
                     logline += ',Accept'
                     shareRes.incrementKey('accept')
@@ -436,6 +438,7 @@ def consumeFiles(logger, fnameList, cfg):
         probs = getBounceProbabilities(cfg, logger)
         openClickTimeout = cfg.getint("Open_Click_Timeout", 30)
         gatherTimeout = cfg.getint("Gather_Timeout", 120)
+        userAgents = getUserAgents(cfg, logger)
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -444,7 +447,7 @@ def consumeFiles(logger, fnameList, cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
@@ -527,6 +530,19 @@ def readConfig(fname):
         config.read_file(f)
     return config['DEFAULT']
 
+# Get a list of realistic User Agent strings from the specified file in config
+def getUserAgents(cfg, logger):
+    uaFileName = cfg.get('User_Agents_File')
+    if os.path.isfile(uaFileName):
+        with open(uaFileName, newline='') as uaFile:
+            ua = csv.DictReader(uaFile)
+            uaStringList = []
+            for u in ua:
+                uaStringList.append(u['Software'])
+            return uaStringList
+    else:
+        logger.error('Unable to open User_Agents_File '+uaFileName)
+        return None
 
 # -----------------------------------------------------------------------------
 # Main code
