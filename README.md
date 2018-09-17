@@ -78,6 +78,8 @@ The sink clicks links in similar manner by fetching any  `<a .. href="..">` tags
 The sink uses an `OPTIONS` http request (which will, conicidentally be rejected by the engagement tracker) to check the server type.
 It does not actually follow the link redirect, or fetch the whole object.
 
+The User-Agent is randomly selected from a realistic set of current, popular browsers.
+
 ### FBLs (aka Spam Complaints)
 
 The sink responds to a some mails with an FBL back to SparkPost in ARF format.  The reply is constructed as follows:
@@ -142,10 +144,7 @@ $ redis-cli
 "13315977"
 ```
 `webReporter.py` is a simple Flask-based reporting app to present these counters.
-On the server, start `gunicorn` on private port number 8888
-```
-cd ~/bouncy-sink/src; sudo /usr/local/bin/gunicorn webReporter:app --bind=0.0.0.0:8888 --access-logfile /var/log/gunicorn.log --daemon
-```
+`gunicorn` is started on private port number 8888 on reboot by `crontab` which calls script `starting-gun.sh`.
 
 On your client, open an SSH connection with port 8888 tunneled:
 ```
@@ -178,6 +177,32 @@ $ curl -s localhost:8888/json | jq .
 
 Bounces will populate your suppression list. It's good practice to purge those entries relating to the sink domains when you've finished.
 [Here is a tool](https://www.sparkpost.com/blog/suppression-list-python/) that you can use to clean up.
+
+### Manually restarting the consume-mail task
+
+Identify the current process number and kill the task:
+```
+ps aux | grep consume
+sudo kill _processID_
+```
+
+Restart the task:
+```
+sudo src/consume-mail.py /var/spool/mail/inbound/ -f >/dev/null 2>&1 &
+```
+
+### User Agent values (on opens and clicks)
+
+`consume-mail.ini` specifies a file that should contain the user-agent strings (in .CSV format), similar to those
+from [here](https://developers.whatismybrowser.com/useragents/explore/software_type_specific/web-browser/).
+
+```
+Software,OS,Layout engine,Popularity,
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36",Chrome 60,Windows,Blink,Very common
+:
+etc
+```
+Only the "Software" column of this file is used. A user-agent is picked at random for each mail, prior to open and click processing.
 
 ## See Also
 

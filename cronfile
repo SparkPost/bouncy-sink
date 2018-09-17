@@ -7,6 +7,5 @@
 #
 # sudo privilege is used to run the script, so that it gains permission to read from and modify contents of the inbound mail dir
 #
-# This executes the script every 1 minute
 
 @reboot cd ~/bouncy-sink; ./starting-gun.sh; sudo src/consume-mail.py /var/spool/mail/inbound/ -f >/dev/null 2>&1
