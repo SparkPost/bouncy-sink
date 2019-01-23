@@ -16,6 +16,7 @@ from html.parser import HTMLParser
 from email import policy
 from webReporter import Results, timeStr
 from urllib.parse import urlparse
+from datetime import datetime
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
@@ -320,7 +321,7 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays):
     with open(fname) as fIn:
         os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
         mail = email.message_from_file(fIn, policy=policy.default)
@@ -334,6 +335,16 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
         if auth != None and 'dkim=pass' in auth:
             # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
             subd = mail['to'].split('@')[1].split('.')[0]
+            localpart = mail['to'].split('@')[0]
+            alphaPrefix = localpart.split('+')[0]
+            finalChar = localpart[-1]                           # final char should be a digit 0-9
+            if alphaPrefix == signalsTrafficPrefix and str.isdigit(finalChar):
+                # SparkPost Signals engagement-recency adjustments
+                currentDay = datetime.now().day  # 1 - 31
+                finalDigit = int(finalChar)
+                doIt = currentDay in signalsOpenDays[finalDigit]
+                logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
+                probs['Open'] = float(doIt)                     # False -> 0.0, True -> 1.0
             if subd == 'oob':
                 if 'spf=pass' in auth:
                     logline += ',' + oobGen(mail, shareRes)
@@ -436,9 +447,16 @@ def consumeFiles(logger, fnameList, cfg):
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         countDone = 0
         probs = getBounceProbabilities(cfg, logger)
-        openClickTimeout = cfg.getint("Open_Click_Timeout", 30)
-        gatherTimeout = cfg.getint("Gather_Timeout", 120)
+        openClickTimeout = cfg.getint('Open_Click_Timeout', 30)
+        gatherTimeout = cfg.getint('Gather_Timeout', 120)
         userAgents = getUserAgents(cfg, logger)
+        signalsTrafficPrefix = cfg.get('Signals_Traffic_Prefix', '')
+        if signalsTrafficPrefix:
+            signalsOpenDays= []
+            for i in range(0, 10):
+                daystr = cfg.get('Digit'+str(i)+'_Days', 0)
+                dayset = {int(j) for j in daystr.split(',') }
+                signalsOpenDays.append(dayset)            # list of sets
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -447,7 +465,7 @@ def consumeFiles(logger, fnameList, cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
@@ -455,6 +473,7 @@ def consumeFiles(logger, fnameList, cfg):
             gatherThreads(logger, th, gatherTimeout)
             emitLogs(resultsQ)
     except Exception as e:                                  # catch any exceptions, keep going
+        print(e)
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
 
