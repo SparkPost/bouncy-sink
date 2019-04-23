@@ -2,3 +2,4 @@ consume-mail.log
 *.txt
 .idea/*
 inbound/*
+Pipfile.lock
