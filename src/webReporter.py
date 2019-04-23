@@ -24,7 +24,7 @@ class Results():
     def __init__(self):
         # Set up a persistent connection to redis results
         appName = 'consume-mail'
-        redisUrl = os.getenv('REDIS_URL', default='localhost')              # Env var is set by Heroku; will be unset when local
+        redisUrl = os.getenv('REDIS_URL', default='redis://localhost')      # Env var is set by Heroku; will be unset when local
         self.r = redis.from_url(redisUrl, socket_timeout=5)                 # shorten timeout so doesn't hang forever
         self.rkeyPrefix = appName + ':' + os.getenv('RESULTS_KEY', default='0') + ':'    # allows unique app instances if needed (e.g. Heroku)
 
