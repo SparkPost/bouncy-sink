@@ -8,7 +8,6 @@
 #   pip3 install requests, dnspython
 #
 import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv
-#import multiprocessing
 import threading, queue
 
 from html.parser import HTMLParser

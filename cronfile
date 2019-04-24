@@ -9,3 +9,4 @@
 #
 
 @reboot cd ~/bouncy-sink; ./starting-gun.sh; sudo src/consume-mail.py /var/spool/mail/inbound/ -f >/dev/null 2>&1
+0 * * * * cd ~/bouncy-sink; sudo src/bouncerate.py >/dev/null 2>&1
