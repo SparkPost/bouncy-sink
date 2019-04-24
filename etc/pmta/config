@@ -24,13 +24,14 @@ smtp-server-tls-certificate  /var/lib/pmta/smtp-server-certificate.pem
 total-max-smtp-in 100
 total-max-file 100                                      # number of file threads writing
 
+# blackhole receives 50% of ELB traffic, giving X/2 % in-band bounce rate
 dummy-smtp-has-chunking yes
 dummy-smtp-has-pipelining yes
 dummy-smtp-has-mailmerge yes
 dummy-smtp-blacklist /etc/pmta/blacklist.dat
 dummy-smtp-log-blacklist yes
 dummy-smtp-blacklist-bounce-method random
-dummy-smtp-blacklist-bounce-percent 4			# blackhole receives 50% of ELB traffic, giving 2% in-band bounce rate
+dummy-smtp-blacklist-bounce-percent 4			# will be updated by script
 dummy-smtp-port 25
 # set this to your host's secondary (eth1) private IP. This does not require its own EIP as it's fed from the ELB
 dummy-smtp-ip 172.31.3.252
