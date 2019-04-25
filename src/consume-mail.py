@@ -241,7 +241,8 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
         isSparky = r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
-        ok = shareRes.setKey(baseurl, isSparky, ex=3600)    # mark this as known, but with an expiry time
+        # NOTE redis-py now needs booleans passed in as strings / bytestr
+        ok = shareRes.setKey(baseurl, str(isSparky).encode('utf-8'), ex=3600)    # mark this as known, but with an expiry time
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
@@ -321,62 +322,68 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
 # -----------------------------------------------------------------------------
 
 def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays):
-    with open(fname) as fIn:
-        os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
-        mail = email.message_from_file(fIn, policy=policy.default)
-        # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
-        logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
-        shareRes.incrementKey('total_messages')
-        ts_min_resolution = int(time.time()//60)*60
-        shareRes.incrementTimeSeries(str(ts_min_resolution))
-        # Test that message was checked by PMTA and has valid DKIM signature
-        auth = mail['Authentication-Results']
-        if auth != None and 'dkim=pass' in auth:
-            # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
-            subd = mail['to'].split('@')[1].split('.')[0]
-            localpart = mail['to'].split('@')[0]
-            alphaPrefix = localpart.split('+')[0]
-            finalChar = localpart[-1]                           # final char should be a digit 0-9
-            if alphaPrefix == signalsTrafficPrefix and str.isdigit(finalChar):
-                # SparkPost Signals engagement-recency adjustments
-                currentDay = datetime.now().day  # 1 - 31
-                finalDigit = int(finalChar)
-                doIt = currentDay in signalsOpenDays[finalDigit]
-                logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
-                probs['Open'] = float(doIt)                     # False -> 0.0, True -> 1.0
-            if subd == 'oob':
-                if 'spf=pass' in auth:
-                    logline += ',' + oobGen(mail, shareRes)
-                else:
-                    logline += ',!Special ' + subd + ' failed SPF check'
-                    shareRes.incrementKey('fail_spf')
-            elif subd == 'fbl':
-                if 'spf=pass' in auth:
-                    logline += ',' + fblGen(mail, shareRes)
-                else:
-                    logline += ',!Special ' + subd + ' failed SPF check'
-                    shareRes.incrementKey('fail_spf')
-            elif subd == 'openclick':
-                # doesn't need SPF pass
-                logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
-            elif subd == 'accept':
-                logline += ',Accept'
-                shareRes.incrementKey('accept')
-            else:
-                # Apply probabilistic model to all other domains
-                if random.random() <= probs['OOB']:
-                    # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-                    logline += ',' + oobGen(mail, shareRes)
-                elif random.random() <= probs['FBL']:
-                    logline += ',' + fblGen(mail, shareRes)
-                elif random.random() <= probs['Open']:
+    try:
+        with open(fname) as fIn:
+            os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
+            mail = email.message_from_file(fIn, policy=policy.default)
+            # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
+            logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
+            shareRes.incrementKey('total_messages')
+            ts_min_resolution = int(time.time()//60)*60
+            shareRes.incrementTimeSeries(str(ts_min_resolution))
+            # Test that message was checked by PMTA and has valid DKIM signature
+            auth = mail['Authentication-Results']
+            if auth != None and 'dkim=pass' in auth:
+                # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
+                subd = mail['to'].split('@')[1].split('.')[0]
+                localpart = mail['to'].split('@')[0]
+                alphaPrefix = localpart.split('+')[0]
+                finalChar = localpart[-1]                           # final char should be a digit 0-9
+                if alphaPrefix == signalsTrafficPrefix and str.isdigit(finalChar):
+                    # SparkPost Signals engagement-recency adjustments
+                    currentDay = datetime.now().day  # 1 - 31
+                    finalDigit = int(finalChar)
+                    doIt = currentDay in signalsOpenDays[finalDigit]
+                    logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
+                    probs['Open'] = float(doIt)                     # False -> 0.0, True -> 1.0
+                if subd == 'oob':
+                    if 'spf=pass' in auth:
+                        logline += ',' + oobGen(mail, shareRes)
+                    else:
+                        logline += ',!Special ' + subd + ' failed SPF check'
+                        shareRes.incrementKey('fail_spf')
+                elif subd == 'fbl':
+                    if 'spf=pass' in auth:
+                        logline += ',' + fblGen(mail, shareRes)
+                    else:
+                        logline += ',!Special ' + subd + ' failed SPF check'
+                        shareRes.incrementKey('fail_spf')
+                elif subd == 'openclick':
+                    # doesn't need SPF pass
                     logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
-                else:
+                elif subd == 'accept':
                     logline += ',Accept'
                     shareRes.incrementKey('accept')
-        else:
-            logline += ',!DKIM fail:' + xstr(auth)
-            shareRes.incrementKey('fail_dkim')
+                else:
+                    # Apply probabilistic model to all other domains
+                    if random.random() <= probs['OOB']:
+                        # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
+                        logline += ',' + oobGen(mail, shareRes)
+                    elif random.random() <= probs['FBL']:
+                        logline += ',' + fblGen(mail, shareRes)
+                    elif random.random() <= probs['Open']:
+                        logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
+                    else:
+                        logline += ',Accept'
+                        shareRes.incrementKey('accept')
+            else:
+                logline += ',!DKIM fail:' + xstr(auth)
+                shareRes.incrementKey('fail_dkim')
+
+    except Exception as err:
+        logline += ',!Exception: '+ str(err)
+
+    finally:
         resQ.put(logline)
 
 
