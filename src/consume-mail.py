@@ -237,12 +237,14 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     # optimisation - check if we already know this is SparkPost or not
     known = shareRes.getKey(baseurl)
     if known:
-        return (b'True' == known)                           # response is always a bytestr
+        known_bool = (known == b'1')
+        return known_bool                                   # response is Bytestr, compare back to a Boolean
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
         isSparky = r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http'
-        # NOTE redis-py now needs booleans passed in as strings / bytestr
-        ok = shareRes.setKey(baseurl, str(isSparky).encode('utf-8'), ex=3600)    # mark this as known, but with an expiry time
+        # NOTE redis-py now needs data passed in simple type such as int (will get converted to bytestr)
+        isB = str(int(isSparky)).encode('utf-8')
+        ok = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
         return isSparky
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)

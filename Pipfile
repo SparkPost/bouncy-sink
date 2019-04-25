@@ -4,13 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-
 requests = "*"
 flask = "*"
 gunicorn = "*"
 redis = "*"
 dnspython = "*"
 flask_cors = "*"
+jinja2 = "*"
 
 [dev-packages]
 
