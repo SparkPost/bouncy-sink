@@ -7,8 +7,8 @@ from datetime import datetime
 # Main code
 # -----------------------------------------------------------------------------------------
 
-# 0=Mon, ... 7=Sun. Make a specific days worse / better than the others.
-weekday_bounce_rate = [4, 12, 6, 2, 4, 4, 4]
+# 0=Mon, ... 7=Sun. Make a specific days worse / better than the others. Really hit Tuesdays hard
+weekday_bounce_rate = [4, 40, 6, 2, 4, 4, 4]
 t = datetime.utcnow()
 today_bounce_rate = weekday_bounce_rate[t.weekday()]
 print('Today\'s bounce rate is', today_bounce_rate)
