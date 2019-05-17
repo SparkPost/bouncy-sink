@@ -8,9 +8,14 @@ from datetime import datetime
 # -----------------------------------------------------------------------------------------
 
 # 0=Mon, ... 7=Sun. Make a specific days worse / better than the others. Really hit Tuesdays hard
-weekday_bounce_rate = [4, 40, 40, 2, 4, 4, 4]
+#         weeks:       even                   odd
+weekday_bounce_rate = [4, 40, 40, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+assert len(weekday_bounce_rate) == 14
 t = datetime.utcnow()
-today_bounce_rate = weekday_bounce_rate[t.weekday()]
+year, week, day = t.isocalendar()
+odd_week_offset = (week % 2) * 7
+d = day-1
+today_bounce_rate = weekday_bounce_rate[d + odd_week_offset]
 print('Today\'s bounce rate is', today_bounce_rate)
 
 filename = '/etc/pmta/config'
