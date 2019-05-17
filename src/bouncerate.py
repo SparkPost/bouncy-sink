@@ -14,9 +14,9 @@ assert len(weekday_bounce_rate) == 14
 t = datetime.utcnow()
 year, week, day = t.isocalendar()
 odd_week_offset = (week % 2) * 7
-d = day-1
-today_bounce_rate = weekday_bounce_rate[d + odd_week_offset]
-print('Today\'s bounce rate is', today_bounce_rate)
+d = day-1 + odd_week_offset
+today_bounce_rate = weekday_bounce_rate[d]
+print('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(d, len(weekday_bounce_rate), today_bounce_rate))
 
 filename = '/etc/pmta/config'
 print('Changing line of file', filename)
