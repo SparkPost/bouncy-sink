@@ -16,6 +16,8 @@ from email import policy
 from webReporter import Results, timeStr
 from urllib.parse import urlparse
 from datetime import datetime
+from bouncerate import nWeeklyCycle
+from common import readConfig
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
@@ -535,6 +537,12 @@ def getBounceProbabilities(cfg, logger):
             'Click'     : cfg.getfloat('Click_percent') / 100 / thisAppTraffic,
             'ClickAgain': cfg.getfloat('Click_Again_percent') / 100 / thisAppTraffic
         }
+        # Adjust open rates according to Signals periodic traffic profile, if present
+        weeklyCycleOpenList = cfg.get('Weekly_Cycle_Open_Rate', '1.0').split(',')
+        weeklyCycleOpenRate = [float(i) for i in weeklyCycleOpenList]
+        todayOpenFactor, _ = nWeeklyCycle(weeklyCycleOpenRate, datetime.utcnow())
+        P['Open'] *= float(todayOpenFactor)
+
         # calculate conditional open & click probabilities, given a realistic state sequence would be
         # Open?
         #  - Maybe OpenAgain?
@@ -549,13 +557,6 @@ def getBounceProbabilities(cfg, logger):
     except (ValueError, configparser.Error) as e:
         logger.error('Config file problem: '+str(e))
         return None
-
-# Get the config from specified filename
-def readConfig(fname):
-    config = configparser.ConfigParser()
-    with open(fname) as f:
-        config.read_file(f)
-    return config['DEFAULT']
 
 # Get a list of realistic User Agent strings from the specified file in config
 def getUserAgents(cfg, logger):

@@ -2,34 +2,58 @@
 from __future__ import print_function
 import subprocess
 from datetime import datetime
+from common import readConfig
+from sys import platform
+
+def nWeeklyCycle(d, t):
+    cycle_len = len(d)
+    assert cycle_len % 7 == 0
+    nweeks = int(cycle_len / 7)
+    year, week, day = t.isocalendar()
+    odd_week_offset = (week % nweeks) * 7
+    i = day-1 + odd_week_offset
+    return d[i], i
 
 # -----------------------------------------------------------------------------------------
 # Main code
 # -----------------------------------------------------------------------------------------
 
-# 0=Mon, ... 7=Sun. Make a specific days worse / better than the others. Really hit Tuesdays hard
-#         weeks:       even                   odd
-weekday_bounce_rate = [4, 40, 40, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
-assert len(weekday_bounce_rate) == 14
-t = datetime.utcnow()
-year, week, day = t.isocalendar()
-odd_week_offset = (week % 2) * 7
-d = day-1 + odd_week_offset
-today_bounce_rate = weekday_bounce_rate[d]
-print('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(d, len(weekday_bounce_rate), today_bounce_rate))
+if __name__ == "__main__":
+    try:
+        cfg = readConfig('consume-mail.ini')
+        weekly_cycle_bounce_rate = cfg.get('Weekly_Cycle_Bounce_Rate', '3').split(',')
+        today_bounce_rate, x = nWeeklyCycle(weekly_cycle_bounce_rate, datetime.utcnow())
+        print('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(x, len(weekly_cycle_bounce_rate), today_bounce_rate))
+        filename = '/etc/pmta/config'
+        print('Changing line of file', filename)
+        with open(filename, "r+") as f:
+            pmta_cfg = f.readlines()
+            pmta_cfg_bounce_param = 'dummy-smtp-blacklist-bounce-percent'
+            for i, s in enumerate(pmta_cfg):
+                if pmta_cfg_bounce_param in s:
+                    print(i, s)
+                    pmta_cfg[i] = '{} {}\t# Updated by script {} on {} UTC\n'.format(pmta_cfg_bounce_param, today_bounce_rate, __file__, t.strftime('%Y-%m-%dT%H:%M:%S'))
+            f.seek(0)
+            f.writelines(pmta_cfg)
+            f.truncate()
+            res = subprocess.run(['sudo', 'pmta','reload'], check=True)
+    except Exception as e:
+        print(e)
 
-filename = '/etc/pmta/config'
-print('Changing line of file', filename)
-with open(filename, "r+") as f:
-    cfg = f.readlines()
-    cfg_bounce_param = 'dummy-smtp-blacklist-bounce-percent'
-    for i, s in enumerate(cfg):
-        if cfg_bounce_param in s:
-            print(i, s)
-            cfg[i] = '{} {}\t# Updated by script {} on {} UTC\n'.format(cfg_bounce_param, today_bounce_rate, __file__, t.strftime('%Y-%m-%dT%H:%M:%S'))
-    f.seek(0)
-    f.writelines(cfg)
-    f.truncate()
+    try:
+        # Check where we are in cycle for resetting suppression list
+        t = datetime.utcnow()
+        weekly_cycle_supp = cfg.get('Weekly_Cycle_Suppressions_Purge', '0').split(',')
+        today_supp_purge, x = nWeeklyCycle(weekly_cycle_supp, t)
+        # Only do at midnight
+        h = t.hour
+        today_supp_purge = (int(today_supp_purge) > 0) and (h == 0)
+        print('Today is day {} (zero based) in the {}-day cycle. Hour = {}. Suppression purge = {}'.format(x, len(weekly_cycle_supp), h, today_supp_purge))
+        if today_supp_purge:
+            res = subprocess.check_output(['./suppression_cleanup.sh'], shell=True)
+            print(res)
+    except Exception as e:
+        print(e)
 
-res = subprocess.run(['sudo', 'pmta','reload'], check=True)
+
 
