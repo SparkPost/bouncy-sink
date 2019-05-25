@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import logging, logging.handlers, sys, os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv
+import os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv
 import threading, queue
 
 from html.parser import HTMLParser
@@ -17,16 +17,7 @@ from webReporter import Results, timeStr
 from urllib.parse import urlparse
 from datetime import datetime
 from bouncerate import nWeeklyCycle
-from common import readConfig
-
-def baseProgName():
-    return os.path.basename(sys.argv[0])
-
-def configFileName():
-    return os.path.splitext(baseProgName())[0] + '.ini'
-
-def xstr(s):
-    return '' if s is None else str(s)
+from common import readConfig, configFileName, createLogger, baseProgName, xstr
 
 
 # -----------------------------------------------------------------------------
@@ -487,22 +478,6 @@ def consumeFiles(logger, fnameList, cfg):
         logger.error(str(e))
     stopConsumeFiles(logger, shareRes, startTime, countDone)
 
-# -----------------------------------------------------------------------------
-# Log handling
-# -----------------------------------------------------------------------------
-
-# Log info on mail that is processed. Logging now rotates at midnight (as per the machine's locale)
-def createLogger(cfg):
-    logfile = cfg.get('Logfile', baseProgName() + '.log')
-    logfileBackupCount = cfg.getint('Logfile_backupCount', 10)  # default to 10 files
-    # No longer using basicConfig, as it echoes to stdout, and logging all done in main thread now
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    fh = logging.handlers.TimedRotatingFileHandler(logfile, when='midnight', backupCount=logfileBackupCount)
-    formatter = logging.Formatter('%(asctime)s,%(name)s,%(levelname)s,%(message)s')
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-    return logger
 
 def emitLogs(resQ):
     while not resQ.empty():
@@ -582,7 +557,8 @@ parser.add_argument('-f', action='store_true', help='Keep looking for new files 
 args = parser.parse_args()
 
 cfg = readConfig(configFileName())
-logger = createLogger(cfg)
+logger = createLogger(cfg.get('Logfile', baseProgName() + '.log'),
+    cfg.getint('Logfile_backupCount', 10))
 
 if args.directory:
     if args.f:

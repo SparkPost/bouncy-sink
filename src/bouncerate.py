@@ -2,8 +2,7 @@
 from __future__ import print_function
 import subprocess
 from datetime import datetime
-from common import readConfig
-from sys import platform
+from common import readConfig, baseProgName, createLogger
 
 def nWeeklyCycle(d, t):
     cycle_len = len(d)
@@ -19,13 +18,15 @@ def nWeeklyCycle(d, t):
 # -----------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    logger = createLogger(baseProgName() + '.log', 10)
     try:
+        t = datetime.utcnow()
         cfg = readConfig('consume-mail.ini')
         weekly_cycle_bounce_rate = cfg.get('Weekly_Cycle_Bounce_Rate', '3').split(',')
-        today_bounce_rate, x = nWeeklyCycle(weekly_cycle_bounce_rate, datetime.utcnow())
-        print('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(x, len(weekly_cycle_bounce_rate), today_bounce_rate))
+        today_bounce_rate, x = nWeeklyCycle(weekly_cycle_bounce_rate, t)
+        logger.info('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(x, len(weekly_cycle_bounce_rate), today_bounce_rate))
         filename = '/etc/pmta/config'
-        print('Changing line of file', filename)
+        logger.info('Changing line of file', filename)
         with open(filename, "r+") as f:
             pmta_cfg = f.readlines()
             pmta_cfg_bounce_param = 'dummy-smtp-blacklist-bounce-percent'
@@ -36,9 +37,10 @@ if __name__ == "__main__":
             f.seek(0)
             f.writelines(pmta_cfg)
             f.truncate()
-            res = subprocess.run(['sudo', 'pmta','reload'], check=True)
+            res = subprocess.check_output(['sudo', 'pmta','reload'])
+            logger.info(res)
     except Exception as e:
-        print(e)
+        logger.error(e)
 
     try:
         # Check where we are in cycle for resetting suppression list
@@ -48,12 +50,12 @@ if __name__ == "__main__":
         # Only do at midnight
         h = t.hour
         today_supp_purge = (int(today_supp_purge) > 0) and (h == 0)
-        print('Today is day {} (zero based) in the {}-day cycle. Hour = {}. Suppression purge = {}'.format(x, len(weekly_cycle_supp), h, today_supp_purge))
+        logger.info('Today is day {} (zero based) in the {}-day cycle. Hour = {}. Suppression purge = {}'.format(x, len(weekly_cycle_supp), h, today_supp_purge))
         if today_supp_purge:
-            res = subprocess.check_output(['./suppression_cleanup.sh'], shell=True)
-            print(res)
+            res = subprocess.run(['./suppression_cleanup.sh'], shell=True)
+            logger.info(res)
     except Exception as e:
-        print(e)
+        logger.error(e)
 
 
 
