@@ -16,6 +16,7 @@ def nWeeklyCycle(d, t):
 # -----------------------------------------------------------------------------------------
 # Main code
 # -----------------------------------------------------------------------------------------
+# This script should be run once per hour from crontab
 
 if __name__ == "__main__":
     logger = createLogger(baseProgName() + '.log', 10)
@@ -26,14 +27,14 @@ if __name__ == "__main__":
         today_bounce_rate, x = nWeeklyCycle(weekly_cycle_bounce_rate, t)
         logger.info('Today is day {} (zero based) in the {}-day cycle. Bounce rate will be {}%'.format(x, len(weekly_cycle_bounce_rate), today_bounce_rate))
         filename = '/etc/pmta/config'
-        logger.info('Changing line of file', filename)
+        logger.info('Changing line of file {}'.format(filename))
         with open(filename, "r+") as f:
             pmta_cfg = f.readlines()
             pmta_cfg_bounce_param = 'dummy-smtp-blacklist-bounce-percent'
             for i, s in enumerate(pmta_cfg):
                 if pmta_cfg_bounce_param in s:
-                    print(i, s)
                     pmta_cfg[i] = '{} {}\t# Updated by script {} on {} UTC\n'.format(pmta_cfg_bounce_param, today_bounce_rate, __file__, t.strftime('%Y-%m-%dT%H:%M:%S'))
+                    logger.info(pmta_cfg[i])
             f.seek(0)
             f.writelines(pmta_cfg)
             f.truncate()
