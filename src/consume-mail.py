@@ -517,6 +517,9 @@ def getBounceProbabilities(cfg, logger):
         weeklyCycleOpenRate = [float(i) for i in weeklyCycleOpenList]
         todayOpenFactor, _ = nWeeklyCycle(weeklyCycleOpenRate, datetime.utcnow())
         P['Open'] *= float(todayOpenFactor)
+        P['OpenAgain'] *= float(todayOpenFactor)
+        P['Click'] *= float(todayOpenFactor)
+        P['ClickAgain'] *= float(todayOpenFactor)
 
         # calculate conditional open & click probabilities, given a realistic state sequence would be
         # Open?
