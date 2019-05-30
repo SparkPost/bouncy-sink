@@ -340,7 +340,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                     finalDigit = int(finalChar)
                     doIt = currentDay in signalsOpenDays[finalDigit]
                     logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
-                    probs['Open'] = float(doIt)                     # False -> 0.0, True -> 1.0
+                    probs['Open'] *= int(doIt)                    # False -> 0.0, True -> 1.0
                 if subd == 'oob':
                     if 'spf=pass' in auth:
                         logline += ',' + oobGen(mail, shareRes)
@@ -447,18 +447,25 @@ def consumeFiles(logger, fnameList, cfg):
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         countDone = 0
-        probs = getBounceProbabilities(cfg, logger)
-        logger.info(probs)
-        openClickTimeout = cfg.getint('Open_Click_Timeout', 30)
-        gatherTimeout = cfg.getint('Gather_Timeout', 120)
-        userAgents = getUserAgents(cfg, logger)
         signalsTrafficPrefix = cfg.get('Signals_Traffic_Prefix', '')
         if signalsTrafficPrefix:
+            maxDayCount = 0
+            activeDigitDays = 0
             signalsOpenDays= []
             for i in range(0, 10):
                 daystr = cfg.get('Digit'+str(i)+'_Days', 0)
                 dayset = {int(j) for j in daystr.split(',') }
                 signalsOpenDays.append(dayset)            # list of sets
+                maxDayCount = max(maxDayCount, len(dayset))
+                activeDigitDays += len(dayset)
+            activeDigitDensity = activeDigitDays/(10*maxDayCount)
+        else:
+            activeDigitDensity = 1.0
+        probs = getBounceProbabilities(cfg, activeDigitDensity, logger)
+        logger.info(probs)
+        openClickTimeout = cfg.getint('Open_Click_Timeout', 30)
+        gatherTimeout = cfg.getint('Gather_Timeout', 120)
+        userAgents = getUserAgents(cfg, logger)
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -499,10 +506,16 @@ def checkSetCondProb(P, a, b, logger):
         P[aGivenbName] = PaGivenb
         return True
 
+# For safety, clip values to lie in range 0.0 <= n <= 1.0
+def probClip(n):
+    return max(0.0, min(1.0, n))
+
 # Take the overall percentages and adjust them according to how much traffic we expect to receive. This app would not see
 # the 'upstream handled' traffic percentage as PMTA blackholes / in-band-bounces this automatically via PMTA config, not in this application
 # Express all values as probabilities 0 <= p <= 1.0
-def getBounceProbabilities(cfg, logger):
+#
+# For Signals, scale the open factor to allow for the filtering by active digit density
+def getBounceProbabilities(cfg, activeDigitDensity, logger):
     try:
         thisAppTraffic  = 1 - cfg.getfloat('Upstream_Handled') / 100
         P = {
@@ -517,10 +530,11 @@ def getBounceProbabilities(cfg, logger):
         weeklyCycleOpenList = cfg.get('Weekly_Cycle_Open_Rate', '1.0').split(',')
         weeklyCycleOpenRate = [float(i) for i in weeklyCycleOpenList]
         todayOpenFactor, _ = nWeeklyCycle(weeklyCycleOpenRate, datetime.utcnow())
-        P['Open'] *= float(todayOpenFactor)
-        P['OpenAgain'] *= float(todayOpenFactor)
-        P['Click'] *= float(todayOpenFactor)
-        P['ClickAgain'] *= float(todayOpenFactor)
+        todayOpenFactor = probClip(todayOpenFactor/activeDigitDensity)
+        P['Open'] = probClip(P['Open'] * todayOpenFactor)
+        P['OpenAgain'] = probClip(P['OpenAgain'] * todayOpenFactor)
+        P['Click'] = probClip(P['Click'] * todayOpenFactor)
+        P['ClickAgain'] = probClip(P['ClickAgain'] * todayOpenFactor)
 
         # calculate conditional open & click probabilities, given a realistic state sequence would be
         # Open?
