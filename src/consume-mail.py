@@ -448,6 +448,7 @@ def consumeFiles(logger, fnameList, cfg):
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         countDone = 0
         probs = getBounceProbabilities(cfg, logger)
+        logger.info(probs)
         openClickTimeout = cfg.getint('Open_Click_Timeout', 30)
         gatherTimeout = cfg.getint('Gather_Timeout', 120)
         userAgents = getUserAgents(cfg, logger)
