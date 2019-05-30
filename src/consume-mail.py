@@ -332,16 +332,18 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
             if auth != None and 'dkim=pass' in auth:
                 # Check for special "To" subdomains that signal what action to take (for safety, these also require inbound spf to have passed)
                 subd = mail['to'].split('@')[1].split('.')[0]
+
+                # SparkPost Signals engagement-recency adjustments
+                doIt = True
                 localpart = mail['to'].split('@')[0]
                 alphaPrefix = localpart.split('+')[0]
                 finalChar = localpart[-1]                           # final char should be a digit 0-9
                 if alphaPrefix == signalsTrafficPrefix and str.isdigit(finalChar):
-                    # SparkPost Signals engagement-recency adjustments
-                    currentDay = datetime.now().day  # 1 - 31
+                    currentDay = datetime.now().day                 # 1 - 31
                     finalDigit = int(finalChar)
                     doIt = currentDay in signalsOpenDays[finalDigit]
                     logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
-                    probs['Open'] *= int(doIt)                    # False -> 0.0, True -> 1.0
+
                 if subd == 'oob':
                     if 'spf=pass' in auth:
                         logline += ',' + oobGen(mail, shareRes)
@@ -367,7 +369,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                         logline += ',' + oobGen(mail, shareRes)
                     elif random.random() <= probs['FBL']:
                         logline += ',' + fblGen(mail, shareRes)
-                    elif random.random() <= probs['Open']:
+                    elif random.random() <= probs['Open'] and doIt:
                         logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
                     else:
                         logline += ',Accept'
