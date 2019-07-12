@@ -309,6 +309,21 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
     return ll
 
 
+def addressSplit(e):
+    """
+    :param e: email.header
+    :return: displayName, localpart, domainpart str
+    """
+    s = str(e)
+    displayName = ''
+    openB = s.index('<')
+    closeB = s.index('>')
+    if openB>0 and closeB>0:
+        displayName = s[:openB].strip(' ')
+        s = s[openB+1:closeB].strip(' ')
+    localpart, domainpart = s.split('@')
+    return displayName, localpart, domainpart
+
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
 # If special subdomains used, these override the model, providing SPF check has passed.
@@ -341,7 +356,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
 
                 # SparkPost Signals engagement-recency adjustments
                 doIt = True
-                localpart = mail['to'].split('@')[0]
+                _, localpart, _ = addressSplit(mail['To'])
                 alphaPrefix = localpart.split('+')[0]
                 finalChar = localpart[-1]                           # final char should be a digit 0-9
                 if alphaPrefix == signalsTrafficPrefix and str.isdigit(finalChar):
