@@ -316,11 +316,11 @@ def addressSplit(e):
     """
     s = str(e)
     displayName = ''
-    openB = s.index('<')
-    closeB = s.index('>')
-    if openB>0 and closeB>0:
+    openB = s.find('<')
+    closeB = s.find('>')
+    if openB >= 0 and closeB >= 0:
         displayName = s[:openB].strip(' ')
-        s = s[openB+1:closeB].strip(' ')
+        s = s[openB+1:closeB].strip(' ')        # this is the address part
     localpart, domainpart = s.split('@')
     return displayName, localpart, domainpart
 
