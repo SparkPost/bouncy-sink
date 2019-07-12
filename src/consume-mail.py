@@ -317,10 +317,16 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest):
     try:
         with open(fname) as fIn:
-            os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
+            if doneMsgFileDest:
+                if not os.path.isdir(doneMsgFileDest):
+                    os.mkdir(doneMsgFileDest)
+                donePathFile = os.path.join(doneMsgFileDest, os.path.basename(fname))
+                os.rename(fname, donePathFile)
+            else:
+                os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
             mail = email.message_from_file(fIn, policy=policy.default)
             # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
             logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
@@ -469,6 +475,7 @@ def consumeFiles(logger, fnameList, cfg):
         openClickTimeout = cfg.getint('Open_Click_Timeout', 30)
         gatherTimeout = cfg.getint('Gather_Timeout', 120)
         userAgents = getUserAgents(cfg, logger)
+        doneMsgFileDest = cfg.get('Done_Msg_File_Dest')
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -477,7 +484,7 @@ def consumeFiles(logger, fnameList, cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
