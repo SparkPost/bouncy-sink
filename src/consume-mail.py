@@ -147,6 +147,8 @@ def mapRP_MXtoSparkPostFbl(returnPath):
                 fblTo = 'fbl@' + tenant + '.mail.e.sparkpost.com'
             elif mx.endswith('smtp.eu.sparkpostmail.com'):          # SparkPost EU
                 fblTo = 'fbl@eu.sparkpostmail.com'
+            elif mx.endswith('trymsys.net'):                        # SparkPost CST demo server domains
+                fblTo = 'fbl@fbl.' + rpDomainPart
             else:
                 return None, None
             return mx, fblTo                                        # Valid
