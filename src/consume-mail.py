@@ -157,14 +157,12 @@ def mapRP_MXtoSparkPostFbl(returnPath):
     except dns.exception.DNSException as err:
         return None, None
 
-def returnPathAddrIn(mail):
-    return mail['Return-Path'].lstrip('<').rstrip('>')              # Remove < > brackets from address
 
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
 def fblGen(mail, shareRes):
-    returnPath = returnPathAddrIn(mail)
+    returnPath = addressPart(mail['Return-Path'])
     if not returnPath:
         shareRes.incrementKey('fbl_missing_return_path')
         return '!Missing Return-Path:'
@@ -172,7 +170,7 @@ def fblGen(mail, shareRes):
         shareRes.incrementKey('fbl_missing_to')
         return '!Missing To:'
     else:
-        fblFrom = mail['to']
+        fblFrom = addressPart(mail['to'])
         mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath)
         if not mx:
             shareRes.incrementKey('fbl_return_path_not_sparkpost')
@@ -193,7 +191,7 @@ def fblGen(mail, shareRes):
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
 def oobGen(mail, shareRes):
-    returnPath = returnPathAddrIn(mail)
+    returnPath = addressPart(mail)
     if not returnPath:
         shareRes.incrementKey('oob_missing_return_path')
         return '!Missing Return-Path:'
@@ -208,7 +206,7 @@ def oobGen(mail, shareRes):
         else:
             # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
             oobTo = returnPath
-            oobFrom = str(mail['To'])
+            oobFrom = addressPart(mail['To'])
             oobMsg = buildOob(oobFrom, oobTo, mail)
             try:
                 # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
@@ -325,6 +323,16 @@ def addressSplit(e):
         s = s[openB+1:closeB].strip(' ')        # this is the address part
     localpart, domainpart = s.split('@')
     return displayName, localpart, domainpart
+
+
+def addressPart(e):
+    """
+    :param e: email.header
+    :return: str Just the local@domain part
+    """
+    _, localPart, domainPart = addressSplit(e)
+    return localPart + '@' + domainPart
+
 
 # -----------------------------------------------------------------------------
 # Process a single mail file according to the probabilistic model & special subdomains
