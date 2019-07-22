@@ -94,28 +94,28 @@ The original message was received at Mon, 02 Jan 2006 15:04:05 -0700
 from example.com.sink.sparkpostmail.com [52.41.116.105]
 
    ----- The following addresses had permanent fatal errors -----
-<{oobTo}>
-    (reason: 550 5.0.0 <{oobTo}>... User unknown)
+<{oobFrom}>
+    (reason: 550 5.0.0 <{oobFrom}>... User unknown)
 
    ----- Transcript of session follows -----
 ... while talking to {toDomain}:
 >>> DATA
-<<< 550 5.0.0 <{oobTo}>... User unknown
-550 5.1.1 <{oobTo}>... User unknown
+<<< 550 5.0.0 <{oobFrom}>... User unknown
+550 5.1.1 <{oobFrom}>... User unknown
 <<< 503 5.0.0 Need RCPT (recipient)
 
 --{boundary}
 Content-Type: message/delivery-status
 
-Reporting-MTA: dns; {toDomain}
-Received-From-MTA: DNS; {fromDomain}
+Reporting-MTA: dns; {fromDomain}
+Received-From-MTA: DNS; {toDomain}
 Arrival-Date: Mon, 02 Jan 2006 15:04:05 MST
 
-Final-Recipient: RFC822; {oobTo}
+Final-Recipient: RFC822; {oobFrom}
 Action: failed
 Status: 5.0.0
 Remote-MTA: DNS; {toDomain}
-Diagnostic-Code: SMTP; 550 5.0.0 <{oobTo}>... User unknown
+Diagnostic-Code: SMTP; 550 5.0.0 <{oobFrom}>... User unknown
 Last-Attempt-Date: Mon, 02 Jan 2006 15:04:05 MST
 
 --{boundary}
