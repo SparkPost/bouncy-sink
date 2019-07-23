@@ -55,27 +55,16 @@ Removal-Recipient: {origTo}
 
 --{boundary}
 Content-Type: message/rfc822
-Content-Disposition: inline
 
-Return-Path: {returnPath}
-To: {origTo}
-From: {origFrom}
-Subject: FBL test
-MIME-Version: 1.0
-Content-type: text/plain
-Message-ID: 8787KJKJ3K4J3K4J3K4J3.mail@{domain}
-X-MSFBL: {msfbl}
-Date: {mailDate}
-
-This is a sample FBL report from the consume-mail task of Bouncy Sink
+{rawMsg}
 
 --{boundary}--
 '''
-def buildArf(fblFrom, fblTo, msfbl, returnPath, origFrom, origTo, peerIP, mailDate):
+def buildArf(fblFrom, fblTo, rawMsg, msfbl, returnPath, origFrom, origTo, peerIP, mailDate):
     boundary = '_----{0:d}'.format(int(time.time()))
     domain = fblFrom.split('@')[1]
-    msg = ArfFormat.format(fblFrom=fblFrom, fblTo=fblTo, boundary=boundary, returnPath=returnPath, domain=domain, msfbl=msfbl,
-                           origFrom=origFrom, origTo=origTo, peerIP=peerIP, mailDate=mailDate)
+    msg = ArfFormat.format(fblFrom=fblFrom, fblTo=fblTo, rawMsg=rawMsg, boundary=boundary, returnPath=returnPath,
+       domain=domain, msfbl=msfbl, origFrom=origFrom, origTo=origTo, peerIP=peerIP, mailDate=mailDate)
     return msg
 
 
@@ -125,7 +114,7 @@ Content-Type: message/rfc822
 
 --{boundary}--
 '''
-def buildOob(oobFrom, oobTo, rawMsg, mailDate, peerIP):
+def buildOob(oobFrom, oobTo, rawMsg, peerIP, mailDate):
     boundary = '_----{0:d}'.format(int(time.time()))
     fromDomain = oobFrom.split('@')[1]
     toDomain = oobTo.split('@')[1]
@@ -196,7 +185,7 @@ def fblGen(mail, shareRes):
             origTo = str(mail['to'])
             peerIP = getPeerIP(mail['Received'])
             mailDate = mail['Date']
-            arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath, origFrom, origTo, peerIP, mailDate)
+            arfMsg = buildArf(fblFrom, fblTo, mail, mail['X-MSFBL'], returnPath, origFrom, origTo, peerIP, mailDate)
             try:
                 # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
@@ -229,7 +218,7 @@ def oobGen(mail, shareRes):
             oobFrom = addressPart(mail['To'])
             peerIP = getPeerIP(mail['Received'])
             mailDate = mail['Date']
-            oobMsg = buildOob(oobFrom, oobTo, mail, mailDate, peerIP)
+            oobMsg = buildOob(oobFrom, oobTo, mail, peerIP, mailDate)
             try:
                 # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
