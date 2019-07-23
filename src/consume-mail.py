@@ -80,7 +80,6 @@ def buildArf(fblFrom, fblTo, msfbl, returnPath, origFrom, origTo, peerIP, mailDa
 
 
 OobFormat = '''From: {oobFrom}
-Date: {mailDate}
 Subject: Returned mail: see transcript for details
 Auto-Submitted: auto-generated (failure)
 To: {oobTo}
@@ -91,8 +90,8 @@ This is a MIME-encapsulated message
 
 --{boundary}
 
-The original message was received at Mon, 02 Jan 2006 15:04:05 -0700
-from example.com.sink.sparkpostmail.com [52.41.116.105]
+The original message was received at {mailDate}
+from {toDomain} [{peerIP}]
 
    ----- The following addresses had permanent fatal errors -----
 <{oobFrom}>
@@ -110,14 +109,14 @@ Content-Type: message/delivery-status
 
 Reporting-MTA: dns; {fromDomain}
 Received-From-MTA: DNS; {toDomain}
-Arrival-Date: Mon, 02 Jan 2006 15:04:05 MST
+Arrival-Date: {mailDate}
 
 Final-Recipient: RFC822; {oobFrom}
 Action: failed
 Status: 5.0.0
 Remote-MTA: DNS; {toDomain}
 Diagnostic-Code: SMTP; 550 5.0.0 <{oobFrom}>... User unknown
-Last-Attempt-Date: Mon, 02 Jan 2006 15:04:05 MST
+Last-Attempt-Date: {mailDate}
 
 --{boundary}
 Content-Type: message/rfc822
@@ -126,11 +125,12 @@ Content-Type: message/rfc822
 
 --{boundary}--
 '''
-def buildOob(oobFrom, oobTo, rawMsg):
-    boundary = '_----{0:d}===_61/00-25439-267B0055'.format(int(time.time()))
+def buildOob(oobFrom, oobTo, rawMsg, mailDate, peerIP):
+    boundary = '_----{0:d}'.format(int(time.time()))
     fromDomain = oobFrom.split('@')[1]
     toDomain = oobTo.split('@')[1]
-    msg = OobFormat.format(oobFrom=oobFrom, oobTo=oobTo, boundary=boundary, toDomain=toDomain, fromDomain=fromDomain, rawMsg=rawMsg)
+    msg = OobFormat.format(oobFrom=oobFrom, oobTo=oobTo, boundary=boundary,
+        toDomain=toDomain, fromDomain=fromDomain, rawMsg=rawMsg, mailDate=mailDate, peerIP=peerIP)
     return msg
 
 # Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to SparkPost.
@@ -159,6 +159,21 @@ def mapRP_MXtoSparkPostFbl(returnPath):
         return None, None
 
 
+def getPeerIP(rx):
+    """
+    Extract peer IP address from Received: header
+    :param rx: email.header
+    :return: str
+    """
+    peerIP = re.findall('\([0-9\.]*\)', rx)
+    if len(peerIP) == 1:
+        peerIP = peerIP[0].lstrip('(').rstrip(')')
+        # tbh this doesn't mean much .. it's the inside (private) IP address of the ELB feeding in traffic
+    else:
+        peerIP = '127.0.0.1'  # set a default value
+    return peerIP
+
+
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
@@ -179,13 +194,7 @@ def fblGen(mail, shareRes):
         else:
             origFrom = str(mail['from'])
             origTo = str(mail['to'])
-            received = str(mail['Received'])
-            peerIP = re.findall('\([0-9\.]*\)', received)
-            if len(peerIP) == 1:
-                peerIP = peerIP[0].lstrip('(').rstrip(')')
-                # tbh this doesn't mean much .. it's the inside (private) IP address of the ELB feeding in traffic
-            else:
-                peerIP = '127.0.0.1'                                # set a default value
+            peerIP = getPeerIP(mail['Received'])
             mailDate = mail['Date']
             arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath, origFrom, origTo, peerIP, mailDate)
             try:
@@ -218,7 +227,9 @@ def oobGen(mail, shareRes):
             # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
             oobTo = returnPath
             oobFrom = addressPart(mail['To'])
-            oobMsg = buildOob(oobFrom, oobTo, mail)
+            peerIP = getPeerIP(mail['Received'])
+            mailDate = mail['Date']
+            oobMsg = buildOob(oobFrom, oobTo, mail, mailDate, peerIP)
             try:
                 # Deliver an OOB to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
