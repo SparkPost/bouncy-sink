@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv
+import os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv, re
 import threading, queue
 
 from html.parser import HTMLParser
@@ -23,10 +23,9 @@ from common import readConfig, configFileName, createLogger, baseProgName, xstr
 # -----------------------------------------------------------------------------
 # FBL and OOB handling
 # -----------------------------------------------------------------------------
-ArfFormat = '''From: <{fblFrom}>
-Date: Mon, 02 Jan 2006 15:04:05 MST
-Subject: FW: Earn money
-To: <{fblTo}>
+ArfFormat = '''From: {fblFrom}
+Subject: FW: FBL test
+To: {fblTo}
 MIME-Version: 1.0
 Content-Type: multipart/report; report-type=feedback-report;
       boundary="{boundary}"
@@ -36,8 +35,7 @@ Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
 
 This is an email abuse report for an email message
-received from IP 10.67.41.167 on Thu, 8 Mar 2005
-14:00:00 EDT.
+received from IP {peerIP} on {mailDate}.
 For more information about this format please see
 http://www.mipassoc.org/arf/.
 
@@ -45,41 +43,44 @@ http://www.mipassoc.org/arf/.
 Content-Type: message/feedback-report
 
 Feedback-Type: abuse
-User-Agent: SomeGenerator/1.0
-Version: 0.1
+User-Agent: consume-mail.py/1.0
+Version: 1.0
+Original-Mail-From: {origFrom}
+Original-Rcpt-To: {origTo}
+Arrival-Date: {mailDate}
+Source-IP: {peerIP}
+Reported-Domain: {returnPath}
+Reported-Uri: mailto:{origTo}
+Removal-Recipient: {origTo}
 
 --{boundary}
 Content-Type: message/rfc822
 Content-Disposition: inline
 
-From: <{returnPath}>
-Received: from mailserver.example.net (mailserver.example.net
-        [10.67.41.167])
-        by example.com with ESMTP id M63d4137594e46;
-        Thu, 08 Mar 2005 14:00:00 -0400
-To: <Undisclosed Recipients>
-Subject: Earn money
+Return-Path: {returnPath}
+To: {origTo}
+From: {origFrom}
+Subject: FBL test
 MIME-Version: 1.0
 Content-type: text/plain
 Message-ID: 8787KJKJ3K4J3K4J3K4J3.mail@{domain}
 X-MSFBL: {msfbl}
-Date: Thu, 02 Sep 2004 12:31:03 -0500
+Date: {mailDate}
 
-Spam Spam Spam
-Spam Spam Spam
-Spam Spam Spam
-Spam Spam Spam
+This is a sample FBL report from the consume-mail task of Bouncy Sink
 
 --{boundary}--
 '''
-def buildArf(fblFrom, fblTo, msfbl, returnPath):
-    boundary = '_----{0:d}===_61/00-25439-267B0055'.format(int(time.time()))
+def buildArf(fblFrom, fblTo, msfbl, returnPath, origFrom, origTo, peerIP, mailDate):
+    boundary = '_----{0:d}'.format(int(time.time()))
     domain = fblFrom.split('@')[1]
-    msg = ArfFormat.format(fblFrom=fblFrom, fblTo=fblTo, boundary=boundary, returnPath=returnPath, domain=domain, msfbl=msfbl)
+    msg = ArfFormat.format(fblFrom=fblFrom, fblTo=fblTo, boundary=boundary, returnPath=returnPath, domain=domain, msfbl=msfbl,
+                           origFrom=origFrom, origTo=origTo, peerIP=peerIP, mailDate=mailDate)
     return msg
 
+
 OobFormat = '''From: {oobFrom}
-Date: Mon, 02 Jan 2006 15:04:05 MST
+Date: {mailDate}
 Subject: Returned mail: see transcript for details
 Auto-Submitted: auto-generated (failure)
 To: {oobTo}
@@ -176,7 +177,17 @@ def fblGen(mail, shareRes):
             shareRes.incrementKey('fbl_return_path_not_sparkpost')
             return '!FBL not sent, Return-Path not recognized as SparkPost'
         else:
-            arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath)
+            origFrom = str(mail['from'])
+            origTo = str(mail['to'])
+            received = str(mail['Received'])
+            peerIP = re.findall('\([0-9\.]*\)', received)
+            if len(peerIP) == 1:
+                peerIP = peerIP[0].lstrip('(').rstrip(')')
+                # tbh this doesn't mean much .. it's the inside (private) IP address of the ELB feeding in traffic
+            else:
+                peerIP = '127.0.0.1'                                # set a default value
+            mailDate = mail['Date']
+            arfMsg = buildArf(fblFrom, fblTo, mail['X-MSFBL'], returnPath, origFrom, origTo, peerIP, mailDate)
             try:
                 # Deliver an FBL to SparkPost using SMTP direct, so that we can check the response code.
                 with smtplib.SMTP(mx) as smtpObj:
