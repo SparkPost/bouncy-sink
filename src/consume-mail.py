@@ -211,9 +211,9 @@ def fblGen(mail, shareRes):
                     smtpObj.sendmail(fblFrom, fblTo, arfMsg)        # if no exception, the mail is sent (250OK)
                     shareRes.incrementKey('fbl_sent')
                     return 'FBL sent,to ' + fblTo + ' via ' + mx
-            except smtplib.SMTPException as err:
+            except Exception as err:
                 shareRes.incrementKey('fbl_smtp_error')
-                return '!FBL endpoint returned SMTP error: ' + str(err)
+                return '!FBL endpoint returned error: ' + str(err)
 
 
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
@@ -244,9 +244,9 @@ def oobGen(mail, shareRes):
                     smtpObj.sendmail(oobFrom, oobTo, oobMsg)            # if no exception, the mail is sent (250OK)
                     shareRes.incrementKey('oob_sent')
                     return 'OOB sent,from {} to {} via {}'.format(oobFrom, oobTo, mx)
-            except smtplib.SMTPException as err:
+            except Exception as err:
                 shareRes.incrementKey('oob_smtp_error')
-                return '!OOB endpoint returned SMTP error: ' + str(err)
+                return '!OOB endpoint returned error: ' + str(err)
 
 
 # -----------------------------------------------------------------------------
