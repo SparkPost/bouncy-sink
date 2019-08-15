@@ -122,30 +122,49 @@ def buildOob(oobFrom, oobTo, rawMsg, peerIP, mailDate):
         toDomain=toDomain, fromDomain=fromDomain, rawMsg=rawMsg, mailDate=mailDate, peerIP=peerIP)
     return msg
 
-# Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to SparkPost.
-# If valid, returns the MX and the associated To: addr for FBLs.
+
+# Serch for most preferred MX. Naive implementation in that we only try one MX, the most preferred
+def findPreferredMX(a):
+    assert len(a) > 0
+    myPref = a[0].preference
+    myExchange = a[0].exchange.to_text()[:-1]        # Take first one in the list, remove trailing '.'
+    for i in range(1, len(a)):
+        if a[i].preference < myPref:
+            myPref = a[i].preference
+            myExchange = a[i].exchange.to_text()[:-1]
+    return myExchange
+
+
+# Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to a known host.
+# If valid, returns the (single, preferred, for simplicity) MX and the associated To: addr for FBLs.
 def mapRP_MXtoSparkPostFbl(returnPath):
     rpDomainPart = returnPath.split('@')[1]
     try:
-        mxList = dns.resolver.query(rpDomainPart, 'MX')             # Will throw exception if not found
-        if mxList:
-            mx = mxList[0].to_text().split()[1][:-1]                # Take first one in the list, remove the priority field and trailing '.'
-            if mx.endswith('smtp.sparkpostmail.com'):               # SparkPost US
-                fblTo = 'fbl@sparkpostmail.com'
-            elif mx.endswith('e.sparkpost.com'):                    # SparkPost Enterprise
-                tenant = mx.split('.')[0]
-                fblTo = 'fbl@' + tenant + '.mail.e.sparkpost.com'
-            elif mx.endswith('smtp.eu.sparkpostmail.com'):          # SparkPost EU
-                fblTo = 'fbl@eu.sparkpostmail.com'
-            elif mx.endswith('signalsdemo.trymsys.net'):            # SparkPost CST demo server domains (general)
-                fblTo = 'fbl@fbl.' + mx
+        # Will throw exception if not found
+        mx = findPreferredMX(dns.resolver.query(rpDomainPart, 'MX'))
+    except dns.exception.DNSException as err:
+        try:
+            # Fall back to using A record - see https://tools.ietf.org/html/rfc5321#section-5
+            answers = dns.resolver.query(rpDomainPart, 'A')
+            if answers:
+                mx = rpDomainPart
             else:
                 return None, None
-            return mx, fblTo                                        # Valid
-        else:
+        except dns.exception.DNSException as err:
             return None, None
-    except dns.exception.DNSException as err:
+
+    if mx.endswith('smtp.sparkpostmail.com'):               # SparkPost US
+        fblTo = 'fbl@sparkpostmail.com'
+    elif mx.endswith('e.sparkpost.com'):                    # SparkPost Enterprise
+        tenant = mx.split('.')[0]
+        fblTo = 'fbl@' + tenant + '.mail.e.sparkpost.com'
+    elif mx.endswith('smtp.eu.sparkpostmail.com'):          # SparkPost EU
+        fblTo = 'fbl@eu.sparkpostmail.com'
+    elif mx.endswith('signalsdemo.trymsys.net'):            # SparkPost CST demo server domains (general)
+        fblTo = 'fbl@fbl.' + mx
+    else:
         return None, None
+    return mx, fblTo                                        # Valid
 
 
 def getPeerIP(rx):
@@ -211,7 +230,7 @@ def oobGen(mail, shareRes):
         mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
         if not mx:
             shareRes.incrementKey('oob_return_path_not_sparkpost')
-            return '!OOB not sent, Return-Path not recognized as SparkPost'
+            return '!OOB not sent, Return-Path ' + returnPath + ' does not have a valid MX'
         else:
             # OOB is addressed back to the Return-Path: address, from the inbound To: address (i.e. the sink)
             oobTo = returnPath
