@@ -1,5 +1,10 @@
-consume-mail.log
+*.log
+*.log.*
+*.zip
+*.xlsx
+*.msg
 *.txt
 .idea/*
 inbound/*
 Pipfile.lock
+.DS_Store
