@@ -8,3 +8,5 @@
 inbound/*
 Pipfile.lock
 .DS_Store
+__pycache__
+launch.json
