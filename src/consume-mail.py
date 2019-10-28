@@ -262,6 +262,8 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     err = None
     if known:
         known_bool = (known == b'1')
+        if not known_bool:
+            err = '!Tracking domain ' + baseurl + ' blocked'
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
