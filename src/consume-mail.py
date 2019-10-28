@@ -259,17 +259,20 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     baseurl = scheme + '://' + netloc
     # optimisation - check if we already know this is SparkPost or not
     known = shareRes.getKey(baseurl)
+    err = None
     if known:
         known_bool = (known == b'1')
-        return known_bool                                   # response is Bytestr, compare back to a Boolean
+        return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
         isSparky = (r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http') or \
             (r.status_code == 405 and 'X-MSYS' in r.headers and r.headers['X-MSYS'] == 'Signals SMTP Traffic Generator Tracking Endpoint')
+        if not isSparky:
+            err = url + ',status_code ' + r.status_code + ',Server ' + r.headers['Server'] + ',X-MSYS ', r.headers['X-MSYS']
         # NOTE redis-py now needs data passed in bytestr
         isB = str(int(isSparky)).encode('utf-8')
         ok = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
-        return isSparky
+        return isSparky, err
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url, openClickTimeout, userAgent):
@@ -281,6 +284,7 @@ class MyHTMLOpenParser(HTMLParser):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
+        self.err = None                                     # use this to return results strings
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
 
@@ -289,16 +293,21 @@ class MyHTMLOpenParser(HTMLParser):
             for attrName, attrValue in attrs:
                 if attrName == 'src':
                     # attrValue = url
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
+                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout)
+                    if isSP:
                         touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
+
+    def err(self):
+        return self.err
 
 class MyHTMLClickParser(HTMLParser):
     def __init__(self, s, shareRes, openClickTimeout, userAgent):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
+        self.err = None                                     # use this to return results strings
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
 
@@ -307,10 +316,14 @@ class MyHTMLClickParser(HTMLParser):
             for attrName, attrValue in attrs:
                 if attrName == 'href':
                     # attrValue = url
-                    if isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout):
+                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout)
+                    if isSP:
                         touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
                         self.shareRes.incrementKey('click_url_not_sparkpost')
+
+    def err(self):
+        return self.err
 
 # open / open again / click / click again logic, as per conditional probabilities
 # takes a persistent requests session object
@@ -320,21 +333,22 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
         htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent)
-        ll += 'Open'
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
+        e = htmlOpenParser.err
+        ll += '_Open' if e == None else e
         if random.random() <= probs['OpenAgain_Given_Open']:
             htmlOpenParser.feed(body)
-            ll += '_OpenAgain'
+            ll += '_OpenAgain' if e == None else e
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
             htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout, userAgent)
             htmlClickParser.feed(body)
-            ll += '_Click'
+            ll += '_Click' if e == None else e
             shareRes.incrementKey('click')
             if random.random() <= probs['ClickAgain_Given_Click']:
                 htmlClickParser.feed(body)
-                ll += '_ClickAgain'
+                ll += '_ClickAgain' if e == None else e
                 shareRes.incrementKey('click_again')
     return ll
 
