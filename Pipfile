@@ -11,6 +11,8 @@ redis = "*"
 dnspython = "*"
 flask_cors = "*"
 jinja2 = "*"
+werkzeug = "*"
+six = "*"
+urllib3 = "*"
 
 [dev-packages]
-

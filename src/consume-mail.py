@@ -267,10 +267,9 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
-        isSparky = (r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http') or \
-            (r.status_code == 405 and 'X-MSYS' in r.headers and r.headers['X-MSYS'] == 'Signals SMTP Traffic Generator Tracking Endpoint')
+        isSparky = (r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http')
         if not isSparky:
-            err = url + ',status_code ' + r.status_code + ',Server ' + r.headers['Server'] + ',X-MSYS ', r.headers['X-MSYS']
+            err = url + ',status_code ' + str(r.status_code)
         # NOTE redis-py now needs data passed in bytestr
         isB = str(int(isSparky)).encode('utf-8')
         ok = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
