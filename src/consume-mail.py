@@ -142,7 +142,7 @@ def mapRP_MXtoSparkPostFbl(returnPath):
     try:
         # Will throw exception if not found
         mx = findPreferredMX(dns.resolver.query(rpDomainPart, 'MX'))
-    except dns.exception.DNSException as err:
+    except dns.exception.DNSException:
         try:
             # Fall back to using A record - see https://tools.ietf.org/html/rfc5321#section-5
             answers = dns.resolver.query(rpDomainPart, 'A')
@@ -150,7 +150,7 @@ def mapRP_MXtoSparkPostFbl(returnPath):
                 mx = rpDomainPart
             else:
                 return None, None
-        except dns.exception.DNSException as err:
+        except dns.exception.DNSException:
             return None, None
 
     if mx.endswith('smtp.sparkpostmail.com'):               # SparkPost US
@@ -267,17 +267,17 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
         r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
-        isSparky = (r.status_code == 405 and 'Server' in r.headers and r.headers['Server'] == 'msys-http')
+        isSparky = 'Server' in r.headers and r.headers['Server'] == 'msys-http'
         if not isSparky:
             err = url + ',status_code ' + str(r.status_code)
         # NOTE redis-py now needs data passed in bytestr
         isB = str(int(isSparky)).encode('utf-8')
-        ok = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
+        _ = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
         return isSparky, err
 
 # Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
 def touchEndPoint(s, url, openClickTimeout, userAgent):
-    r = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True, headers={'User-Agent': userAgent})
+    _ = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True, headers={'User-Agent': userAgent})
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
@@ -518,7 +518,7 @@ def gatherThreads(logger, th, gatherTimeout):
         if tj:
             tj.join(timeout=gatherTimeout)  # for safety in case a thread hangs, set a timeout
             if tj.is_alive():
-                logger.error('Thread {} timed out'.format())
+                logger.error('Thread {} timed out'.format(tj))
             th[i] = None
 
 # consume a list of files, delegating to worker threads / processes

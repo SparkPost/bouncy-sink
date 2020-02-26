@@ -11,3 +11,4 @@ Pipfile.lock
 __pycache__
 launch.json
 consume-mail.ini
+.vscode/settings.json

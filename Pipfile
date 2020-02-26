@@ -16,3 +16,4 @@ six = "*"
 urllib3 = "*"
 
 [dev-packages]
+pylint = "*"
