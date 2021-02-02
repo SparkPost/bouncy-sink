@@ -389,17 +389,20 @@ def addressPart(e):
 
 def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest):
     try:
+        logline=''
         with open(fname) as fIn:
-            if doneMsgFileDest:
+            mail = email.message_from_file(fIn, policy=policy.default)
+            xhdr = mail['X-Bouncy-Sink']
+            if doneMsgFileDest and xhdr and 'store-done' in xhdr.lower():
                 if not os.path.isdir(doneMsgFileDest):
                     os.mkdir(doneMsgFileDest)
                 donePathFile = os.path.join(doneMsgFileDest, os.path.basename(fname))
                 os.rename(fname, donePathFile)
             else:
                 os.remove(fname)  # OK to remove while open, contents destroyed once file handle closed
-            mail = email.message_from_file(fIn, policy=policy.default)
+
             # Log addresses. Some rogue / spammy messages seen are missing From and To addresses
-            logline = fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
+            logline += fname + ',' + xstr(mail['to']) + ',' + xstr(mail['from'])
             shareRes.incrementKey('total_messages')
             ts_min_resolution = int(time.time()//60)*60
             shareRes.incrementTimeSeries(str(ts_min_resolution))
