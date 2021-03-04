@@ -253,7 +253,7 @@ def oobGen(mail, shareRes):
 # Open and Click handling
 # -----------------------------------------------------------------------------
 
-# Heuristic for whether this is really SparkPost: it rejects the OPTIONS verb but identifies itself in Server header
+# Heuristic for whether this is really SparkPost: identifies itself in Server header
 def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
     scheme, netloc, _, _, _, _ = urlparse(url)
     baseurl = scheme + '://' + netloc
@@ -266,8 +266,9 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
             err = '!Tracking domain ' + baseurl + ' blocked'
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
-        r = s.options(url, allow_redirects=False, timeout=openClickTimeout)
-        isSparky = 'Server' in r.headers and r.headers['Server'] == 'msys-http'
+        # Ping the path prefix for clicks
+        r = s.get(baseurl + '/f/a', allow_redirects=False, timeout=openClickTimeout)
+        isSparky = r.headers.get('Server') == 'msys-http'
         if not isSparky:
             err = url + ',status_code ' + str(r.status_code)
         # NOTE redis-py now needs data passed in bytestr
