@@ -254,12 +254,15 @@ def oobGen(mail, shareRes):
 # -----------------------------------------------------------------------------
 
 # Heuristic for whether this is really SparkPost: identifies itself in Server header
-def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout):
+# if domain in allowlist, then skip the checks
+def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDomainsAllowlist):
+    err = None
     scheme, netloc, _, _, _, _ = urlparse(url)
+    if netloc in trackingDomainsAllowlist:
+        return True, err
     baseurl = scheme + '://' + netloc
     # optimisation - check if we already know this is SparkPost or not
     known = shareRes.getKey(baseurl)
-    err = None
     if known:
         known_bool = (known == b'1')
         if not known_bool:
@@ -282,20 +285,21 @@ def touchEndPoint(s, url, openClickTimeout, userAgent):
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
-    def __init__(self, s, shareRes, openClickTimeout, userAgent):
+    def __init__(self, s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
         self.err = None                                     # use this to return results strings
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
+        self.trackingDomainsAllowlist = trackingDomainsAllowlist
 
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
             for attrName, attrValue in attrs:
                 if attrName == 'src':
                     # attrValue = url
-                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout)
+                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout, self.trackingDomainsAllowlist)
                     if isSP:
                         touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
@@ -305,20 +309,21 @@ class MyHTMLOpenParser(HTMLParser):
         return self.err
 
 class MyHTMLClickParser(HTMLParser):
-    def __init__(self, s, shareRes, openClickTimeout, userAgent):
+    def __init__(self, s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist):
         HTMLParser.__init__(self)
         self.requestSession = s                             # Use persistent 'requests' session for speed
         self.shareRes = shareRes                            # shared results handle
         self.err = None                                     # use this to return results strings
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
+        self.trackingDomainsAllowlist = trackingDomainsAllowlist
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
             for attrName, attrValue in attrs:
                 if attrName == 'href':
                     # attrValue = url
-                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout)
+                    isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout, self.trackingDomainsAllowlist)
                     if isSP:
                         touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
                     else:
@@ -329,12 +334,12 @@ class MyHTMLClickParser(HTMLParser):
 
 # open / open again / click / click again logic, as per conditional probabilities
 # takes a persistent requests session object
-def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
+def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent, trackingDomainsAllowlist):
     ll = ''
     bd = mail.get_body('text/html')
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
-        htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent)
+        htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist)
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
         e = htmlOpenParser.err
@@ -344,7 +349,7 @@ def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent):
             ll += '_OpenAgain' if e == None else e
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
-            htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout, userAgent)
+            htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist)
             htmlClickParser.feed(body)
             ll += '_Click' if e == None else e
             shareRes.incrementKey('click')
@@ -388,7 +393,7 @@ def addressPart(e):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist):
     try:
         logline=''
         with open(fname) as fIn:
@@ -438,7 +443,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                         shareRes.incrementKey('fail_spf')
                 elif subd == 'openclick':
                     # doesn't need SPF pass
-                    logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
+                    logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents), trackingDomainsAllowlist)
                 elif subd == 'accept':
                     logline += ',Accept'
                     shareRes.incrementKey('accept')
@@ -450,7 +455,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                     elif random.random() <= probs['FBL']:
                         logline += ',' + fblGen(mail, shareRes)
                     elif random.random() <= probs['Open'] and doIt:
-                        logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents))
+                        logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents), trackingDomainsAllowlist)
                     else:
                         logline += ',Accept'
                         shareRes.incrementKey('accept')
@@ -550,6 +555,7 @@ def consumeFiles(logger, fnameList, cfg):
         gatherTimeout = cfg.getint('Gather_Timeout', 120)
         userAgents = getUserAgents(cfg, logger)
         doneMsgFileDest = cfg.get('Done_Msg_File_Dest')
+        trackingDomainsAllowlist = cfg.get('Tracking_Domains_Allowlist').replace(' ','').split(',')
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -558,7 +564,7 @@ def consumeFiles(logger, fnameList, cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
