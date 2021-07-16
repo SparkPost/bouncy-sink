@@ -336,7 +336,7 @@ class MyHTMLClickParser(HTMLParser):
 # takes a persistent requests session object
 def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent, trackingDomainsAllowlist):
     ll = ''
-    bd = mail.get_body('text/html')
+    bd = mail.get_body(('html',))
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
         htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist)
