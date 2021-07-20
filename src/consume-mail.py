@@ -258,6 +258,9 @@ def oobGen(mail, shareRes):
 def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDomainsAllowlist):
     err = None
     scheme, netloc, _, _, _, _ = urlparse(url)
+    # Skip past links that are not HTTP (such as mailto: links)
+    if not scheme in ['http', 'https']:
+        return False, err
     if netloc in trackingDomainsAllowlist:
         return True, err
     baseurl = scheme + '://' + netloc
@@ -269,8 +272,8 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDoma
             err = '!Tracking domain ' + baseurl + ' blocked'
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
-        # Ping the path prefix for clicks
-        r = s.get(baseurl + '/f/a', allow_redirects=False, timeout=openClickTimeout)
+        # Ping the path prefix for clicks, allowing (limited) redirects
+        r = s.get(baseurl + '/f/a', timeout=openClickTimeout)
         isSparky = r.headers.get('Server') == 'msys-http'
         if not isSparky:
             err = url + ',status_code ' + str(r.status_code)
@@ -279,9 +282,15 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDoma
         _ = shareRes.setKey(baseurl, isB, ex=3600)         # mark this as known, but with an expiry time
         return isSparky, err
 
-# Improved "GET" - doesn't follow the redirect, and opens as stream (so doesn't actually fetch a lot of stuff)
+# Improved "GET" - now allows (limited) redirects, opens as stream (so doesn't actually fetch a lot of stuff)
+# Also returns the response codes for logging
 def touchEndPoint(s, url, openClickTimeout, userAgent):
-    _ = s.get(url, allow_redirects=False, timeout=openClickTimeout, stream=True, headers={'User-Agent': userAgent})
+    res = s.get(url, timeout=openClickTimeout, stream=True, headers={'User-Agent': userAgent})
+    if res.status_code == 200:
+        r = str(res.status_code)
+    else:
+        r = str(res.status_code) + ' ' + url
+    return r
 
 # Parse html email body, looking for open-pixel and links.  Follow these to do open & click tracking
 class MyHTMLOpenParser(HTMLParser):
@@ -293,6 +302,7 @@ class MyHTMLOpenParser(HTMLParser):
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
         self.trackingDomainsAllowlist = trackingDomainsAllowlist
+        self.res = []                                       # List of responses seen
 
     def handle_starttag(self, tag, attrs):
         if tag == 'img':
@@ -301,7 +311,7 @@ class MyHTMLOpenParser(HTMLParser):
                     # attrValue = url
                     isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout, self.trackingDomainsAllowlist)
                     if isSP:
-                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
+                        self.res.append(touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent))
                     else:
                         self.shareRes.incrementKey('open_url_not_sparkpost')
 
@@ -317,6 +327,7 @@ class MyHTMLClickParser(HTMLParser):
         self.openClickTimeout = openClickTimeout
         self.userAgent = userAgent
         self.trackingDomainsAllowlist = trackingDomainsAllowlist
+        self.res = []                                       # List of responses seen
 
     def handle_starttag(self, tag, attrs):
         if tag == 'a':
@@ -325,7 +336,7 @@ class MyHTMLClickParser(HTMLParser):
                     # attrValue = url
                     isSP, self.err = isSparkPostTrackingEndpoint(self.requestSession, attrValue, self.shareRes, self.openClickTimeout, self.trackingDomainsAllowlist)
                     if isSP:
-                        touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent)
+                        self.res.append(touchEndPoint(self.requestSession, attrValue, self.openClickTimeout, self.userAgent))
                     else:
                         self.shareRes.incrementKey('click_url_not_sparkpost')
 
@@ -334,29 +345,32 @@ class MyHTMLClickParser(HTMLParser):
 
 # open / open again / click / click again logic, as per conditional probabilities
 # takes a persistent requests session object
+# log line now has response codes
 def openClickMail(mail, probs, shareRes, s, openClickTimeout, userAgent, trackingDomainsAllowlist):
     ll = ''
-    bd = mail.get_body('text/html')
+    bd = mail.get_body(preferencelist=('html'))             # Preferred tuple style
     if bd:  # if no body to parse, ignore
         body = bd.get_content()                             # this handles quoted-printable type for us
         htmlOpenParser = MyHTMLOpenParser(s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist)
         shareRes.incrementKey('open')
         htmlOpenParser.feed(body)
         e = htmlOpenParser.err
-        ll += '_Open' if e == None else e
+        ll += '_Open:' + ','.join(htmlOpenParser.res) if e == None else e
         if random.random() <= probs['OpenAgain_Given_Open']:
             htmlOpenParser.feed(body)
-            ll += '_OpenAgain' if e == None else e
+            ll += '_OpenAgain:' + ','.join(htmlOpenParser.res) if e == None else e
             shareRes.incrementKey('open_again')
         if random.random() <= probs['Click_Given_Open']:
             htmlClickParser = MyHTMLClickParser(s, shareRes, openClickTimeout, userAgent, trackingDomainsAllowlist)
             htmlClickParser.feed(body)
-            ll += '_Click' if e == None else e
+            ll += '_Click:' + ','.join(htmlClickParser.res) if e == None else e
             shareRes.incrementKey('click')
             if random.random() <= probs['ClickAgain_Given_Click']:
                 htmlClickParser.feed(body)
-                ll += '_ClickAgain' if e == None else e
+                ll += '_ClickAgain:' + ','.join(htmlClickParser.res) if e == None else e
                 shareRes.incrementKey('click_again')
+    else:
+        ll += '!No HTML body found'
     return ll
 
 
@@ -502,7 +516,8 @@ def initThreads(maxThreads):
     th = [None] * maxThreads
     thSession = [None] * maxThreads
     for i in range(maxThreads):
-        thSession[i] = requests.session()
+        thSession[i] = requests.Session()
+        thSession[i].max_redirects = 4          # should be enough for anyone - default is 30 (!!)
     return th, thSession
 
 # search for a free slot, with memory (so acts as round-robin)
