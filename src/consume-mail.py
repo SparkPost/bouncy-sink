@@ -450,18 +450,13 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                     doIt = currentDay in signalsOpenDays[finalDigit]
                     logline += ',currentDay={},finalDigit={}'.format(currentDay, finalDigit)
 
+                # Relax need for SPF checks to pass, DKIM should be enough
                 if subd == 'oob':
-                    if 'spf=pass' in auth:
-                        logline += ',' + oobGen(mail, shareRes)
-                    else:
-                        logline += ',!Special ' + subd + ' failed SPF check'
-                        shareRes.incrementKey('fail_spf')
+                    logline += ',' + oobGen(mail, shareRes)
+
                 elif subd == 'fbl':
-                    if 'spf=pass' in auth:
-                        logline += ',' + fblGen(mail, shareRes)
-                    else:
-                        logline += ',!Special ' + subd + ' failed SPF check'
-                        shareRes.incrementKey('fail_spf')
+                    logline += ',' + fblGen(mail, shareRes)
+
                 elif subd == 'openclick':
                     # doesn't need SPF pass
                     logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents), trackingDomainsAllowlist)
@@ -490,7 +485,7 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
     finally:
         exclamation = '!' in logline
         if (keep_file or exclamation) and donePathFile:
-            logline += '->done'
+            logline += '!done'
         else:
             os.remove(donePathFile)
         resQ.put(logline)
