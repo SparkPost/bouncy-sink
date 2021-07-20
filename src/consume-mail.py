@@ -410,12 +410,19 @@ def addressPart(e):
 def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist):
     try:
         logline=''
+        keep_file = False                       # default is to not keep the file (otherwise disk would fill up)
         with open(fname) as fIn:
             mail = email.message_from_file(fIn, policy=policy.default)
             xhdr = mail['X-Bouncy-Sink']
-            if doneMsgFileDest and xhdr and 'store-done' in xhdr.lower():
+            if xhdr and 'store-done' in xhdr.lower():
+                keep_file = True
+
+            if doneMsgFileDest:
+                # Ensure we have a directory to move file to
                 if not os.path.isdir(doneMsgFileDest):
                     os.mkdir(doneMsgFileDest)
+
+                # Hold file in "done" path, decide later what to do with it
                 donePathFile = os.path.join(doneMsgFileDest, os.path.basename(fname))
                 os.rename(fname, donePathFile)
             else:
@@ -481,6 +488,11 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
         logline += ',!Exception: '+ str(err)
 
     finally:
+        exclamation = '!' in logline
+        if (keep_file or exclamation) and donePathFile:
+            logline += '->done'
+        else:
+            os.remove(donePathFile)
         resQ.put(logline)
 
 
