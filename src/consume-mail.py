@@ -272,8 +272,8 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDoma
             err = '!Tracking domain ' + baseurl + ' blocked'
         return known_bool, err                                # response is Bytestr, compare back to a Boolean
     else:
-        # Ping the path prefix for clicks, allowing (limited) redirects
-        r = s.get(baseurl + '/f/a', timeout=openClickTimeout)
+        # Ping the path prefix for clicks, looking at the first response
+        r = s.get(baseurl + '/f/a',  allow_redirects=False, timeout=openClickTimeout)
         isSparky = r.headers.get('Server') == 'msys-http'
         if not isSparky:
             err = url + ',status_code ' + str(r.status_code)
