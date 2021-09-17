@@ -137,7 +137,7 @@ def findPreferredMX(a):
 
 # Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to a known host.
 # If valid, returns the (single, preferred, for simplicity) MX and the associated To: addr for FBLs.
-def mapRP_MXtoSparkPostFbl(returnPath):
+def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist):
     rpDomainPart = returnPath.split('@')[1]
     try:
         # Will throw exception if not found
@@ -153,15 +153,12 @@ def mapRP_MXtoSparkPostFbl(returnPath):
         except dns.exception.DNSException:
             return None, None
 
-    if mx.endswith('smtp.sparkpostmail.com'):               # SparkPost US
-        fblTo = 'fbl@sparkpostmail.com'
+    # Look for exact match
+    if mx in RPDomainsAllowlist:
+        fblTo = RPDomainsAllowlist.get(mx)
     elif mx.endswith('e.sparkpost.com'):                    # SparkPost Enterprise
         tenant = mx.split('.')[0]
         fblTo = 'fbl@' + tenant + '.mail.e.sparkpost.com'
-    elif mx.endswith('smtp.eu.sparkpostmail.com'):          # SparkPost EU
-        fblTo = 'fbl@eu.sparkpostmail.com'
-    elif mx.endswith('signalsdemo.trymsys.net'):            # SparkPost CST demo server domains (general)
-        fblTo = 'fbl@fbl.' + mx
     else:
         return None, None
     return mx, fblTo                                        # Valid
@@ -185,7 +182,7 @@ def getPeerIP(rx):
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
-def fblGen(mail, shareRes):
+def fblGen(mail, shareRes, RPDomainsAllowlist):
     returnPath = addressPart(mail['Return-Path'])
     if not returnPath:
         shareRes.incrementKey('fbl_missing_return_path')
@@ -195,7 +192,7 @@ def fblGen(mail, shareRes):
         return '!Missing To:'
     else:
         fblFrom = addressPart(mail['to'])
-        mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath)
+        mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist)
         if not mx:
             shareRes.incrementKey('fbl_return_path_not_sparkpost')
             return '!FBL not sent, Return-Path not recognized as SparkPost'
@@ -218,7 +215,7 @@ def fblGen(mail, shareRes):
 
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
-def oobGen(mail, shareRes):
+def oobGen(mail, shareRes, RPDomainsAllowlist):
     returnPath = addressPart(mail)
     if not returnPath:
         shareRes.incrementKey('oob_missing_return_path')
@@ -227,7 +224,7 @@ def oobGen(mail, shareRes):
         shareRes.incrementKey('oob_missing_to')
         return '!Missing To:'
     else:
-        mx, _ = mapRP_MXtoSparkPostFbl(returnPath)
+        mx, _ = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist)
         if not mx:
             shareRes.incrementKey('oob_return_path_not_sparkpost')
             return '!OOB not sent, Return-Path ' + returnPath + ' does not have a valid MX'
@@ -407,7 +404,7 @@ def addressPart(e):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist):
     try:
         logline=''
         keep_file = False                       # default is to not keep the file (otherwise disk would fill up)
@@ -452,10 +449,10 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
 
                 # Relax need for SPF checks to pass, DKIM should be enough
                 if subd == 'oob':
-                    logline += ',' + oobGen(mail, shareRes)
+                    logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist)
 
                 elif subd == 'fbl':
-                    logline += ',' + fblGen(mail, shareRes)
+                    logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist)
 
                 elif subd == 'openclick':
                     # doesn't need SPF pass
@@ -467,9 +464,9 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                     # Apply probabilistic model to all other domains
                     if random.random() <= probs['OOB']:
                         # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-                        logline += ',' + oobGen(mail, shareRes)
+                        logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist)
                     elif random.random() <= probs['FBL']:
-                        logline += ',' + fblGen(mail, shareRes)
+                        logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist)
                     elif random.random() <= probs['Open'] and doIt:
                         logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents), trackingDomainsAllowlist)
                     else:
@@ -553,7 +550,8 @@ def gatherThreads(logger, th, gatherTimeout):
             th[i] = None
 
 # consume a list of files, delegating to worker threads / processes
-def consumeFiles(logger, fnameList, cfg):
+def consumeFiles(logger, fnameList, all_cfg):
+    cfg = all_cfg['Sink'] # split out just this section
     try:
         shareRes, startTime, maxThreads = startConsumeFiles(logger, cfg, len(fnameList))
         countDone = 0
@@ -578,6 +576,12 @@ def consumeFiles(logger, fnameList, cfg):
         userAgents = getUserAgents(cfg, logger)
         doneMsgFileDest = cfg.get('Done_Msg_File_Dest')
         trackingDomainsAllowlist = cfg.get('Tracking_Domains_Allowlist').replace(' ','').split(',')
+
+        # Gather the allowed return-path domains and their associated FBL addresses from a distinct config section
+        RPDomainsAllowlist = {}
+        for k, v in all_cfg['RP_MX_domain_allowlist'].items():
+            RPDomainsAllowlist[k] = v
+
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -586,7 +590,7 @@ def consumeFiles(logger, fnameList, cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
@@ -687,8 +691,8 @@ parser.add_argument('-f', action='store_true', help='Keep looking for new files 
 args = parser.parse_args()
 
 cfg = readConfig(configFileName())
-logger = createLogger(cfg.get('Logfile', baseProgName() + '.log'),
-    cfg.getint('Logfile_backupCount', 10))
+logger = createLogger(cfg['Sink'].get('Logfile', baseProgName() + '.log'),
+    cfg['Sink'].getint('Logfile_backupCount', 10))
 
 if args.directory:
     if args.f:
@@ -698,7 +702,7 @@ if args.directory:
             if fnameList:
                 consumeFiles(logger, fnameList, cfg)
             time.sleep(5)
-            cfg = readConfig(configFileName())                  # get config again, in case it's changed
+            cfg, RPcfg = readConfig(configFileName())                  # get config again, in case it's changed
     else:
         # Just process once
         fnameList = glob.glob(os.path.join(args.directory, '*.msg'))

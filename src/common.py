@@ -12,7 +12,7 @@ def readConfig(fname):
     config = configparser.ConfigParser()
     with open(fname) as f:
         config.read_file(f)
-    return config['DEFAULT']
+    return config
 
 def baseProgName():
     return os.path.basename(sys.argv[0])
