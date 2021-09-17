@@ -7,7 +7,7 @@
 # Pre-requisites:
 #   pip3 install requests, dnspython
 #
-import os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv, re
+import os, email, time, glob, requests, dns.resolver, smtplib, configparser, random, argparse, csv, re, sys
 import threading, queue
 
 from html.parser import HTMLParser
@@ -478,7 +478,8 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                 shareRes.incrementKey('fail_dkim')
 
     except Exception as err:
-        logline += ',!Exception: '+ str(err)
+        _, _, exc_tb = sys.exc_info()
+        logline += ',!Exception: '+ str(err) + ' line ' + str(exc_tb.tb_lineno) + ' ' + fname
 
     finally:
         exclamation = '!' in logline
@@ -487,6 +488,8 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
         else:
             if donePathFile:
                 os.remove(donePathFile)
+            else:
+                os.remove(fname) # didn't rename the file, so clean up input file
         resQ.put(logline)
 
 
