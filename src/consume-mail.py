@@ -405,9 +405,10 @@ def addressPart(e):
 # -----------------------------------------------------------------------------
 
 def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist):
+    logline=''
+    donePathFile = ''
+    keep_file = False                       # default is to not keep the file (otherwise disk would fill up)
     try:
-        logline=''
-        keep_file = False                       # default is to not keep the file (otherwise disk would fill up)
         with open(fname) as fIn:
             mail = email.message_from_file(fIn, policy=policy.default)
             xhdr = mail['X-Bouncy-Sink']
@@ -484,7 +485,8 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
         if (keep_file or exclamation) and donePathFile:
             logline += '!done'
         else:
-            os.remove(donePathFile)
+            if donePathFile:
+                os.remove(donePathFile)
         resQ.put(logline)
 
 
@@ -702,7 +704,7 @@ if args.directory:
             if fnameList:
                 consumeFiles(logger, fnameList, cfg)
             time.sleep(5)
-            cfg, RPcfg = readConfig(configFileName())                  # get config again, in case it's changed
+            cfg = readConfig(configFileName())                  # get config again, in case it's changed
     else:
         # Just process once
         fnameList = glob.glob(os.path.join(args.directory, '*.msg'))
