@@ -529,8 +529,10 @@ def initThreads(maxThreads):
         thSession[i].max_redirects = 4          # should be enough for anyone - default is 30 (!!)
     return th, thSession
 
-# search for a free slot, with memory (so acts as round-robin)
+# search for a free slot, with memory (so acts as round-robin).
+# If return value is None, this indicates we've waited a long time and the thread pool is in livelock perhaps
 def findFreeThreadSlot(th, thIdx):
+    maxSleepTime = 5.0                          # max seconds to wait
     totalWait = 0
     t = (thIdx+1) % len(th)
     while True:
@@ -548,9 +550,9 @@ def findFreeThreadSlot(th, thIdx):
                 sleepTime = 0.1
                 time.sleep(sleepTime)
                 totalWait += sleepTime
-                if totalWait >= 5:
+                if totalWait >= maxSleepTime:
                     print('Waited {} seconds for a free thread - exiting'.format(totalWait))
-                    exit(1)
+                    return None
 
 # Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
 # thread-safe and process-safe
@@ -603,6 +605,8 @@ def consumeFiles(logger, fnameList, all_cfg):
                 if os.path.isfile(fname):
                     # check and get a free process space
                     thIdx = findFreeThreadSlot(th, thIdx)
+                    if thIdx == None:
+                        raise Exception('Thread pool timeout {}'.format(th))
                     th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
