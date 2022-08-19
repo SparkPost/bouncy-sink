@@ -531,18 +531,26 @@ def initThreads(maxThreads):
 
 # search for a free slot, with memory (so acts as round-robin)
 def findFreeThreadSlot(th, thIdx):
+    totalWait = 0
     t = (thIdx+1) % len(th)
     while True:
         if th[t] == None:                       # empty slot
+            print(totalWait)
             return t
         elif not th[t].is_alive():              # thread just finished
             th[t] = None
+            print(totalWait)
             return t
         else:                                   # keep searching
             t = (t+1) % len(th)
             if t == thIdx:
                 # already polled each slot once this call - so wait a while
-                time.sleep(0.1)
+                sleepTime = 0.1
+                time.sleep(sleepTime)
+                totalWait += sleepTime
+                if totalWait >= 5:
+                    print('Waited {} seconds for a free thread - exiting'.format(totalWait))
+                    exit(1)
 
 # Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
 # thread-safe and process-safe
