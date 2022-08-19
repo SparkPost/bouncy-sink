@@ -537,11 +537,11 @@ def findFreeThreadSlot(th, thIdx):
     t = (thIdx+1) % len(th)
     while True:
         if th[t] == None:                       # empty slot
-            print(totalWait)
+            # print(totalWait) # debug
             return t
         elif not th[t].is_alive():              # thread just finished
             th[t] = None
-            print(totalWait)
+            # print(totalWait) # debug
             return t
         else:                                   # keep searching
             t = (t+1) % len(th)
@@ -551,7 +551,6 @@ def findFreeThreadSlot(th, thIdx):
                 time.sleep(sleepTime)
                 totalWait += sleepTime
                 if totalWait >= maxSleepTime:
-                    print('Waited {} seconds for a free thread - exiting'.format(totalWait))
                     return None
 
 # Wait for threads to complete, marking them as None when done. Get logging results text back from queue, as this is
