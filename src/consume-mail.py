@@ -271,7 +271,7 @@ def isSparkPostTrackingEndpoint(s, url, shareRes, openClickTimeout, trackingDoma
     else:
         # Ping the path prefix for clicks, looking at the first response
         r = s.get(baseurl + '/f/a',  allow_redirects=False, timeout=openClickTimeout)
-        isSparky = r.headers.get('Server') == 'msys-http'
+        isSparky = r.headers.get('Server') == 'msys-http' or r.headers.get('Server') == 'msys-et'
         if not isSparky:
             err = url + ',status_code ' + str(r.status_code)
         # NOTE redis-py now needs data passed in bytestr
