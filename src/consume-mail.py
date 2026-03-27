@@ -137,9 +137,9 @@ def findPreferredMX(a):
 
 # Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to a known host.
 # If valid, returns the (single, preferred, for simplicity) MX and the associated To: addr for FBLs.
-def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist=set()):
+def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist=None):
     rpDomainPart = returnPath.split('@')[1]
-    if rpDomainPart in RPDomainBlocklist:
+    if RPDomainBlocklist and rpDomainPart in RPDomainBlocklist:
         return None, None
     try:
         # Will throw exception if not found
