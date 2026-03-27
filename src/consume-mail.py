@@ -139,7 +139,7 @@ def findPreferredMX(a):
 # If valid, returns the (single, preferred, for simplicity) MX and the associated To: addr for FBLs.
 def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist=None):
     rpDomainPart = returnPath.split('@')[1]
-    if RPDomainBlocklist and rpDomainPart in RPDomainBlocklist:
+    if RPDomainBlocklist and rpDomainPart.lower() in RPDomainBlocklist:
         return None, None
     try:
         # Will throw exception if not found
