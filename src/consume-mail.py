@@ -137,8 +137,10 @@ def findPreferredMX(a):
 
 # Avoid creating backscatter spam https://en.wikipedia.org/wiki/Backscatter_(email). Check that returnPath points to a known host.
 # If valid, returns the (single, preferred, for simplicity) MX and the associated To: addr for FBLs.
-def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist):
+def mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist=None):
     rpDomainPart = returnPath.split('@')[1]
+    if RPDomainBlocklist and rpDomainPart.lower() in RPDomainBlocklist:
+        return None, None
     try:
         # Will throw exception if not found
         mx = findPreferredMX(dns.resolver.query(rpDomainPart, 'MX'))
@@ -182,7 +184,7 @@ def getPeerIP(rx):
 # Generate and deliver an FBL response (to cause a spam_complaint event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/fblgen
 #
-def fblGen(mail, shareRes, RPDomainsAllowlist):
+def fblGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist):
     returnPath = addressPart(mail['Return-Path'])
     if not returnPath:
         shareRes.incrementKey('fbl_missing_return_path')
@@ -192,7 +194,7 @@ def fblGen(mail, shareRes, RPDomainsAllowlist):
         return '!Missing To:'
     else:
         fblFrom = addressPart(mail['to'])
-        mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist)
+        mx, fblTo = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist)
         if not mx:
             shareRes.incrementKey('fbl_return_path_not_sparkpost')
             return '!FBL not sent, Return-Path not recognized as SparkPost'
@@ -215,7 +217,7 @@ def fblGen(mail, shareRes, RPDomainsAllowlist):
 
 # Generate and deliver an OOB response (to cause a out_of_band event in SparkPost)
 # Based on https://github.com/SparkPost/gosparkpost/tree/master/cmd/oobgen
-def oobGen(mail, shareRes, RPDomainsAllowlist):
+def oobGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist):
     returnPath = addressPart(mail)
     if not returnPath:
         shareRes.incrementKey('oob_missing_return_path')
@@ -224,7 +226,7 @@ def oobGen(mail, shareRes, RPDomainsAllowlist):
         shareRes.incrementKey('oob_missing_to')
         return '!Missing To:'
     else:
-        mx, _ = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist)
+        mx, _ = mapRP_MXtoSparkPostFbl(returnPath, RPDomainsAllowlist, RPDomainBlocklist)
         if not mx:
             shareRes.incrementKey('oob_return_path_not_sparkpost')
             return '!OOB not sent, Return-Path ' + returnPath + ' does not have a valid MX'
@@ -404,7 +406,7 @@ def addressPart(e):
 # Now opens, parses and deletes the file here inside the sub-process
 # -----------------------------------------------------------------------------
 
-def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist):
+def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist, RPDomainBlocklist):
     logline=''
     donePathFile = ''
     keep_file = False                       # default is to not keep the file (otherwise disk would fill up)
@@ -450,10 +452,10 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
 
                 # Relax need for SPF checks to pass, DKIM should be enough
                 if subd == 'oob':
-                    logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist)
+                    logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist)
 
                 elif subd == 'fbl':
-                    logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist)
+                    logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist)
 
                 elif subd == 'openclick':
                     # doesn't need SPF pass
@@ -465,9 +467,9 @@ def processMail(fname, probs, shareRes, resQ, session, openClickTimeout, userAge
                     # Apply probabilistic model to all other domains
                     if random.random() <= probs['OOB']:
                         # Mail that out-of-band bounces would not not make it to the inbox, so would not get opened, clicked or FBLd
-                        logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist)
+                        logline += ',' + oobGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist)
                     elif random.random() <= probs['FBL']:
-                        logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist)
+                        logline += ',' + fblGen(mail, shareRes, RPDomainsAllowlist, RPDomainBlocklist)
                     elif random.random() <= probs['Open'] and doIt:
                         logline += ',' + openClickMail(mail, probs, shareRes, session, openClickTimeout, random.choice(userAgents), trackingDomainsAllowlist)
                     else:
@@ -596,6 +598,12 @@ def consumeFiles(logger, fnameList, all_cfg):
         for k, v in all_cfg['RP_MX_domain_allowlist'].items():
             RPDomainsAllowlist[k] = v
 
+        # Gather blocklisted return-path domains (skip DNS lookups for these)
+        RPDomainBlocklist = set()
+        if 'RP_domain_blocklist' in all_cfg:
+            for k in all_cfg['RP_domain_blocklist']:
+                RPDomainBlocklist.add(k)
+
         if probs:
             th, thSession = initThreads(maxThreads)
             resultsQ = queue.Queue()
@@ -606,7 +614,7 @@ def consumeFiles(logger, fnameList, all_cfg):
                     thIdx = findFreeThreadSlot(th, thIdx)
                     if thIdx == None:
                         raise Exception('Thread pool timeout {}'.format(th))
-                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist))
+                    th[thIdx] = threading.Thread(target=processMail, args=(fname, probs, shareRes, resultsQ, thSession[thIdx], openClickTimeout, userAgents, signalsTrafficPrefix, signalsOpenDays, doneMsgFileDest, trackingDomainsAllowlist, RPDomainsAllowlist, RPDomainBlocklist))
                     th[thIdx].start()                      # launch concurrent process
                     countDone += 1
                     emitLogs(resultsQ)
